@@ -58,9 +58,11 @@ TIMEOUT_NWS   = 20
 # NCEI EVENT_TYPE column → our schema (None = skip this event type)
 NCEI_TYPE_MAP: dict[str, Optional[str]] = {
     "Hail":                       "Hail",
+    "Marine Hail":                "Hail",
     "Thunderstorm Wind":          "Wind",
     "High Wind":                  "Wind",
     "Strong Wind":                "Wind",
+    "Tornado":                    "Wind",
     "Marine Strong Wind":         "Wind",
     "Marine High Wind":           "Wind",
     "Marine Thunderstorm Wind":   "Wind",
@@ -85,27 +87,52 @@ NWS_TYPE_MAP: dict[str, str] = {
     "Tropical Storm Watch":         "Tropical Storm",
 }
 
-# NCEI STATE column (full caps) → 2-letter abbreviation
+# NCEI STATE column → 2-letter abbreviation.
+# Keys are title-cased to match .title() normalization applied at lookup time
+# (NCEI sends ALL CAPS; row.get("STATE").strip().title() normalises both).
 STATE_ABBREV: dict[str, str] = {
-    "ALABAMA": "AL", "ALASKA": "AK", "ARIZONA": "AZ", "ARKANSAS": "AR",
-    "CALIFORNIA": "CA", "COLORADO": "CO", "CONNECTICUT": "CT", "DELAWARE": "DE",
-    "FLORIDA": "FL", "GEORGIA": "GA", "HAWAII": "HI", "IDAHO": "ID",
-    "ILLINOIS": "IL", "INDIANA": "IN", "IOWA": "IA", "KANSAS": "KS",
-    "KENTUCKY": "KY", "LOUISIANA": "LA", "MAINE": "ME", "MARYLAND": "MD",
-    "MASSACHUSETTS": "MA", "MICHIGAN": "MI", "MINNESOTA": "MN", "MISSISSIPPI": "MS",
-    "MISSOURI": "MO", "MONTANA": "MT", "NEBRASKA": "NE", "NEVADA": "NV",
-    "NEW HAMPSHIRE": "NH", "NEW JERSEY": "NJ", "NEW MEXICO": "NM", "NEW YORK": "NY",
-    "NORTH CAROLINA": "NC", "NORTH DAKOTA": "ND", "OHIO": "OH", "OKLAHOMA": "OK",
-    "OREGON": "OR", "PENNSYLVANIA": "PA", "RHODE ISLAND": "RI", "SOUTH CAROLINA": "SC",
-    "SOUTH DAKOTA": "SD", "TENNESSEE": "TN", "TEXAS": "TX", "UTAH": "UT",
-    "VERMONT": "VT", "VIRGINIA": "VA", "WASHINGTON": "WA", "WEST VIRGINIA": "WV",
-    "WISCONSIN": "WI", "WYOMING": "WY", "DISTRICT OF COLUMBIA": "DC",
-    "PUERTO RICO": "PR", "VIRGIN ISLANDS": "VI", "AMERICAN SAMOA": "AS",
-    "GUAM": "GU", "HAWAII WATERS": "HI",
+    "Alabama": "AL", "Alaska": "AK", "Arizona": "AZ", "Arkansas": "AR",
+    "California": "CA", "Colorado": "CO", "Connecticut": "CT", "Delaware": "DE",
+    "Florida": "FL", "Georgia": "GA", "Hawaii": "HI", "Idaho": "ID",
+    "Illinois": "IL", "Indiana": "IN", "Iowa": "IA", "Kansas": "KS",
+    "Kentucky": "KY", "Louisiana": "LA", "Maine": "ME", "Maryland": "MD",
+    "Massachusetts": "MA", "Michigan": "MI", "Minnesota": "MN", "Mississippi": "MS",
+    "Missouri": "MO", "Montana": "MT", "Nebraska": "NE", "Nevada": "NV",
+    "New Hampshire": "NH", "New Jersey": "NJ", "New Mexico": "NM", "New York": "NY",
+    "North Carolina": "NC", "North Dakota": "ND", "Ohio": "OH", "Oklahoma": "OK",
+    "Oregon": "OR", "Pennsylvania": "PA", "Rhode Island": "RI", "South Carolina": "SC",
+    "South Dakota": "SD", "Tennessee": "TN", "Texas": "TX", "Utah": "UT",
+    "Vermont": "VT", "Virginia": "VA", "Washington": "WA", "West Virginia": "WV",
+    "Wisconsin": "WI", "Wyoming": "WY", "District Of Columbia": "DC",
+    "Puerto Rico": "PR", "Virgin Islands": "VI", "American Samoa": "AS",
+    "Guam": "GU", "Hawaii Waters": "HI",
     # Marine/lake zones — map to nearest state for display purposes
-    "ATLANTIC NORTH": "NC", "ATLANTIC SOUTH": "FL", "GULF OF MEXICO": "LA",
-    "LAKE MICHIGAN": "IL", "LAKE SUPERIOR": "MN", "LAKE HURON": "MI",
-    "LAKE ERIE": "OH", "LAKE ONTARIO": "NY",
+    "Atlantic North": "NC", "Atlantic South": "FL", "Gulf Of Mexico": "LA",
+    "Lake Michigan": "IL", "Lake Superior": "MN", "Lake Huron": "MI",
+    "Lake Erie": "OH", "Lake Ontario": "NY",
+}
+
+# Geographic center of each state — used as lat/lon fallback when NCEI
+# omits BEGIN_LAT/BEGIN_LON (county/zone-level events with no point data).
+STATE_CENTROIDS: dict[str, tuple[float, float]] = {
+    "AL": (32.799, -86.807), "AK": (64.201, -153.494), "AZ": (34.274, -111.660),
+    "AR": (34.894, -92.443), "CA": (37.184, -119.470), "CO": (38.997, -105.548),
+    "CT": (41.622, -72.727), "DE": (39.318, -75.507), "FL": (28.631, -82.450),
+    "GA": (32.641, -83.443), "HI": (20.293, -156.374), "ID": (44.351, -114.613),
+    "IL": (40.042, -89.197), "IN": (39.894, -86.282), "IA": (42.075, -93.496),
+    "KS": (38.494, -98.380), "KY": (37.535, -85.302), "LA": (31.069, -91.997),
+    "ME": (45.370, -69.243), "MD": (39.055, -76.791), "MA": (42.260, -71.808),
+    "MI": (44.347, -85.410), "MN": (46.281, -94.305), "MS": (32.736, -89.668),
+    "MO": (38.357, -92.458), "MT": (47.053, -109.633), "NE": (41.538, -99.795),
+    "NV": (39.329, -116.631), "NH": (43.681, -71.581), "NJ": (40.191, -74.673),
+    "NM": (34.407, -106.113), "NY": (42.954, -75.527), "NC": (35.556, -79.388),
+    "ND": (47.450, -100.466), "OH": (40.286, -82.794), "OK": (35.589, -97.494),
+    "OR": (43.934, -120.558), "PA": (40.878, -77.800), "RI": (41.676, -71.556),
+    "SC": (33.917, -80.896), "SD": (44.444, -100.226), "TN": (35.858, -86.351),
+    "TX": (31.476, -99.331), "UT": (39.306, -111.094), "VT": (44.069, -72.666),
+    "VA": (37.521, -78.854), "WA": (47.383, -120.447), "WV": (38.641, -80.623),
+    "WI": (44.624, -89.994), "WY": (42.996, -107.551), "DC": (38.904, -77.017),
+    "PR": (18.221, -66.590),
 }
 
 
@@ -192,8 +219,8 @@ def find_ncei_filename(year: int, index_html: str) -> Optional[str]:
     The creation-date suffix acts as a natural cache-buster in pipeline.py:
     if NCEI re-publishes a year's file, the new filename produces a new cache key.
     """
-    pattern = rf"StormEvents_details-ftp_v1\.0_d{year}_c\d+\.gz"
-    matches = re.findall(pattern, index_html)
+    all_detail_files = re.findall(r"StormEvents_details[^\s\"'<>]+\.gz", index_html)
+    matches = [f for f in all_detail_files if f"_d{year}_" in f]
     return sorted(matches)[-1] if matches else None
 
 
@@ -246,11 +273,21 @@ def _ncei_row_to_record(row: dict, event_type: str) -> Optional[dict]:
     try:
         lat_s = row.get("BEGIN_LAT", "").strip()
         lon_s = row.get("BEGIN_LON", "").strip()
-        if not lat_s or not lon_s:
-            return None  # skip county-level events with no precise coords
-        lat, lon = float(lat_s), float(lon_s)
-        if lat == 0.0 and lon == 0.0:
-            return None
+        lat = lon = None
+        if lat_s and lon_s:
+            try:
+                lat, lon = float(lat_s), float(lon_s)
+                if lat == 0.0 and lon == 0.0:
+                    lat = lon = None
+            except ValueError:
+                pass
+        if lat is None:
+            # Fall back to state centroid for county/zone-level events
+            state_key = STATE_ABBREV.get(row.get("STATE", "").strip().title(), "")
+            centroid = STATE_CENTROIDS.get(state_key)
+            if centroid is None:
+                return None
+            lat, lon = centroid
 
         event_date = _parse_ncei_date(row.get("BEGIN_DATE_TIME", ""))
         if event_date is None:
@@ -281,6 +318,12 @@ def _ncei_row_to_record(row: dict, event_type: str) -> Optional[dict]:
                     severity = min(4, max(1, int(float(cat_s))))
                 except ValueError:
                     severity = _wind_severity(wind_speed or 0)
+            elif row.get("EVENT_TYPE") == "Tornado":
+                # MAGNITUDE is typically null for tornadoes; use EF/F scale instead
+                tor = row.get("TOR_F_SCALE", "").strip()
+                m = re.search(r"\d", tor)
+                ef = int(m.group()) if m else 2  # unknown → assume EF2
+                severity = 4 if ef >= 4 else (3 if ef >= 2 else 2)
             else:
                 severity = _wind_severity(wind_speed or 0)
 
@@ -292,7 +335,7 @@ def _ncei_row_to_record(row: dict, event_type: str) -> Optional[dict]:
         homes = _damage_to_homes(damage_usd, event_type, severity)
 
         state = STATE_ABBREV.get(
-            row.get("STATE", "").strip().upper(),
+            row.get("STATE", "").strip().title(),
             row.get("STATE", "")[:2].upper(),
         )
         city   = (row.get("BEGIN_LOCATION") or "").strip().title()

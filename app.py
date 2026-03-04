@@ -112,6 +112,13 @@ def _inject_css() -> None:
         border: 1px solid rgba(255, 255, 255, 0.06) !important;
     }
 
+    /* ── Date picker — let calendar popup escape sidebar clipping ── */
+    section[data-testid="stSidebar"],
+    section[data-testid="stSidebar"] > div,
+    section[data-testid="stSidebar"] > div > div {
+        overflow: visible !important;
+    }
+
     /* ── Top info bar ── */
     .top-bar {
         display: flex;

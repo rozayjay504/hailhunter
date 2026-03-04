@@ -113,10 +113,7 @@ def _ncei_index() -> str:
     return fetch_ncei_index_html()
 
 
-@st.cache_data(
-    ttl=3600 * 6,
-    show_spinner="Downloading NCEI storm data…",
-)
+@st.cache_data(ttl=300, show_spinner=False)
 def _ncei_year(filename: str) -> list[dict]:
     """
     Cache one annual NCEI CSV keyed by its exact filename.

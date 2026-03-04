@@ -150,6 +150,12 @@ def render_sidebar() -> None:
         )
         st.session_state.severity_min = severity_min
 
+        # ── Dev: cache control ────────────────────────────────────────────────
+        st.markdown('<div class="filter-divider"></div>', unsafe_allow_html=True)
+        if st.button("🗑 Clear Cache", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
+
         # Footer count is rendered by app.py after filtering so it always
         # reflects the live filtered result with no session-state lag.
 
