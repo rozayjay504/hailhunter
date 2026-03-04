@@ -39,26 +39,8 @@ def _inject_css() -> None:
         overflow: hidden !important;
     }
 
-    /* ── Header: transparent background, natural height, no chrome ── */
-    [data-testid="stHeader"] {
-        background: transparent !important;
-    }
-    /* ── Hide the deploy button but leave header layout intact ── */
-    [data-testid="stToolbar"] {
-        visibility: hidden !important;
-    }
-    /* ── Hide other unwanted chrome ── */
+    /* ── Hide only what we need to — let Streamlit render its own header ── */
     #MainMenu, footer { visibility: hidden; }
-
-    /* ── Sidebar collapse/expand arrow — always clearly visible ── */
-    [data-testid="stSidebarCollapsedControl"] {
-        visibility: visible !important;
-        opacity: 1 !important;
-        position: fixed !important;
-        top: 40px !important;
-        left: 0 !important;
-        z-index: 99999 !important;
-    }
 
     /* ── Layout ── */
     .block-container {
@@ -162,6 +144,7 @@ def _inject_css() -> None:
         justify-content: space-between;
         padding: 6px 4px 8px;
         border-bottom: 1px solid rgba(255,255,255,0.05);
+        margin-top: 8px;
         margin-bottom: 6px;
     }
     .top-bar-title {
