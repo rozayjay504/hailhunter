@@ -28,8 +28,34 @@ st.set_page_config(
 def _inject_css() -> None:
     st.markdown("""
     <style>
-    /* ── Hide default Streamlit chrome ── */
-    #MainMenu, footer, header { visibility: hidden; }
+    /* ── Full-viewport lock — no page scroll ── */
+    html, body {
+        height: 100vh !important;
+        overflow: hidden !important;
+    }
+    .stApp {
+        height: 100vh !important;
+        overflow: hidden !important;
+    }
+
+    /* ── Collapse the Streamlit toolbar to zero height ── */
+    [data-testid="stHeader"] {
+        height: 0 !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        padding: 0 !important;
+    }
+    /* ── Hide chrome we don't need ── */
+    #MainMenu, footer { visibility: hidden; }
+
+    /* ── Sidebar collapse/expand arrow — always visible ── */
+    [data-testid="stSidebarCollapsedControl"] {
+        visibility: visible !important;
+        position: fixed !important;
+        top: 8px !important;
+        left: 8px !important;
+        z-index: 99999 !important;
+    }
 
     /* ── Layout ── */
     .block-container {
@@ -38,6 +64,7 @@ def _inject_css() -> None:
         padding-left: 1rem !important;
         padding-right: 1rem !important;
         max-width: 100% !important;
+        overflow: hidden !important;
     }
 
     /* ── Sidebar shell ── */
@@ -107,10 +134,11 @@ def _inject_css() -> None:
     ::-webkit-scrollbar-thumb { background: #1F2937; border-radius: 2px; }
     ::-webkit-scrollbar-thumb:hover { background: #374151; }
 
-    /* ── Map iframe ── */
+    /* ── Map iframe — fill remaining viewport height ── */
     .stIFrame, iframe {
         border-radius: 8px !important;
         border: 1px solid rgba(255, 255, 255, 0.06) !important;
+        height: calc(100vh - 65px) !important;
     }
 
     /* ── Date picker — push calendar dialog down so nav row isn't clipped ── */
