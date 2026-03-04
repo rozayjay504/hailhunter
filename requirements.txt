@@ -16,8 +16,9 @@ numpy>=1.24.0
 # Dates
 python-dateutil>=2.8.0
 
-# HTTP (Phase 2 - NOAA + OpenWeather API clients)
+# HTTP + env (Phase 2 - NOAA + OpenWeather API clients)
 requests>=2.31.0
+python-dotenv>=1.0.0
 
 # PDF Export (Phase 5)
 reportlab>=4.0.0

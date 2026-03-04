@@ -9,7 +9,7 @@ from streamlit_folium import st_folium
 
 from components.filters import render_sidebar, get_active_filters
 from components.map import build_map
-from data.mock_storms import get_mock_storms, filter_storms
+from data.pipeline import get_storms, filter_storms
 
 
 # ── Page config (must be first Streamlit call) ─────────────────────────────────
@@ -177,8 +177,11 @@ def main() -> None:
     render_sidebar()
 
     # Load + filter data
-    raw_df = get_mock_storms()
     filters = get_active_filters()
+    raw_df, data_source = get_storms(
+        start_date=filters.get("date_start"),
+        end_date=filters.get("date_end"),
+    )
     filtered_df = filter_storms(raw_df, filters)
 
     # Update sidebar storm count badge
@@ -187,10 +190,17 @@ def main() -> None:
     # ── Top bar ──────────────────────────────────────────────────────────────
     n = len(filtered_df)
     total = len(raw_df)
+    src_color = "#10B981" if data_source == "live" else "#6B7280"
+    src_label = "LIVE" if data_source == "live" else "MOCK"
     st.markdown(
         f'<div class="top-bar">'
         f'<span class="top-bar-title">⚡ HailHunter &nbsp;·&nbsp; Storm Intelligence</span>'
+        f'<span style="display:flex;align-items:center;gap:8px;">'
+        f'<span style="font-size:10px;font-weight:700;color:{src_color};'
+        f'background:{src_color}18;border:1px solid {src_color}44;'
+        f'padding:2px 8px;border-radius:20px;letter-spacing:.08em;">{src_label}</span>'
         f'<span class="top-bar-badge">{n} / {total} Events</span>'
+        f'</span>'
         f'</div>',
         unsafe_allow_html=True,
     )
