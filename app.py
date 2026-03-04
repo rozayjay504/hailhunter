@@ -159,8 +159,8 @@ def _init_session_state() -> None:
         "selected_zone":    None,
         "saved_zones":      [],
         "map_return":       None,
-        # UI state
-        "n_visible_storms": 0,
+        # Map interaction (Phase 3+) — n_visible_storms removed; written
+        # directly to st.sidebar after filtering to avoid session-state lag.
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -184,8 +184,15 @@ def main() -> None:
     )
     filtered_df = filter_storms(raw_df, filters)
 
-    # Update sidebar storm count badge
-    st.session_state.n_visible_storms = len(filtered_df)
+    # Write the count badge now — after filtering — so it is always current.
+    with st.sidebar:
+        st.markdown('<div class="filter-divider"></div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div style="text-align:center;color:#6B7280;font-size:11px;padding:8px 0;">'
+            f'<span style="color:#FF6B35;font-weight:700;">{len(filtered_df)}</span>'
+            f' storm events visible</div>',
+            unsafe_allow_html=True,
+        )
 
     # ── Top bar ──────────────────────────────────────────────────────────────
     n = len(filtered_df)

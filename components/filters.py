@@ -150,15 +150,8 @@ def render_sidebar() -> None:
         )
         st.session_state.severity_min = severity_min
 
-        # ── Footer stats ──────────────────────────────────────────────────────
-        st.markdown('<div class="filter-divider"></div>', unsafe_allow_html=True)
-        n_visible = st.session_state.get("n_visible_storms", 0)
-        st.markdown(
-            f'<div style="text-align:center; color:#6B7280; font-size:11px; padding:8px 0;">'
-            f'<span style="color:#FF6B35; font-weight:700;">{n_visible}</span> storm events visible'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
+        # Footer count is rendered by app.py after filtering so it always
+        # reflects the live filtered result with no session-state lag.
 
 
 def get_active_filters() -> dict:

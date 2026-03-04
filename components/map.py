@@ -53,12 +53,13 @@ def build_map(df: pd.DataFrame) -> folium.Map:
 def _add_storm_markers(m: folium.Map, df: pd.DataFrame) -> None:
     """Add a CircleMarker for every storm event in the DataFrame."""
     for _, row in df.iterrows():
-        color = SEVERITY_COLORS[row["severity"]]
-        radius = SEVERITY_RADIUS[row["severity"]]
+        severity = max(1, min(4, int(row["severity"])))  # clamp 1–4 defensively
+        color = SEVERITY_COLORS[severity]
+        radius = SEVERITY_RADIUS[severity]
 
         # Build popup HTML
         popup_html = _popup_html(row)
-        tooltip_text = f"{row['city']}, {row['state']} — {row['event_type']} ({SEVERITY_LABELS[row['severity']]})"
+        tooltip_text = f"{row['city']}, {row['state']} — {row['event_type']} ({SEVERITY_LABELS[severity]})"
 
         folium.CircleMarker(
             location=[row["lat"], row["lon"]],

@@ -47,7 +47,11 @@ TIMEOUT_INDEX = 20   # seconds — directory listing
 TIMEOUT_CSV   = 180  # seconds — annual CSV can be 30–80 MB compressed
 TIMEOUT_NWS   = 20
 
-KNOTS_TO_MPH = 1.15078  # NCEI stores wind magnitude in knots
+# NCEI MAGNITUDE for wind is recorded in the units used by the reporting
+# office — in practice the Storm Events database values align with mph
+# (NWS warning thresholds are stated in mph: 58 mph = severe thunderstorm).
+# We do NOT apply a knots conversion; doing so inflates typical 55–75 mph
+# events by 15 % and pushes most into severity 3, collapsing the color range.
 
 # ── Event-type mappings ────────────────────────────────────────────────────────
 
@@ -108,16 +112,25 @@ STATE_ABBREV: dict[str, str] = {
 # ── Severity + geometry helpers ────────────────────────────────────────────────
 
 def _hail_severity(inches: float) -> int:
+    # 1 — Minor      < 1.00"  pea / dime       cosmetic damage only
+    # 2 — Moderate   < 1.75"  quarter–ping pong moderate shingle damage
+    # 3 — Severe     < 2.50"  golf–tennis ball  significant damage
+    # 4 — Catastrophic ≥ 2.50" baseball+        full replacement needed
     if inches < 1.00: return 1
-    if inches < 1.50: return 2
-    if inches < 2.00: return 3
+    if inches < 1.75: return 2
+    if inches < 2.50: return 3
     return 4
 
 
 def _wind_severity(mph: float) -> int:
-    if mph < 60: return 1
-    if mph < 75: return 2
-    if mph < 90: return 3
+    # Bands aligned to NWS damage tiers (values treated as mph):
+    # 1 — Minor      < 58 mph  below severe thunderstorm threshold
+    # 2 — Moderate   < 75 mph  severe thunderstorm / high-wind warning range
+    # 3 — Severe     < 100 mph significant structural / roofing damage
+    # 4 — Catastrophic ≥ 100 mph hurricane-force / extreme wind
+    if mph < 58:  return 1
+    if mph < 75:  return 2
+    if mph < 100: return 3
     return 4
 
 
@@ -214,9 +227,9 @@ def _ncei_row_to_record(row: dict, event_type: str) -> Optional[dict]:
             severity = _hail_severity(hail_size)
 
         else:
-            # NCEI MAGNITUDE for wind = speed in knots → convert to mph
+            # NCEI MAGNITUDE for wind — used directly as mph (see note above)
             if magnitude is not None:
-                wind_speed = round(magnitude * KNOTS_TO_MPH, 1)
+                wind_speed = round(magnitude, 1)
 
             # Hurricanes: use CATEGORY (Saffir-Simpson 1–5) for severity if present
             cat_s = row.get("CATEGORY", "").strip()
