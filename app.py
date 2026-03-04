@@ -4,6 +4,7 @@ Phase 1: Map shell with mock storm data and sidebar filters.
 """
 
 import streamlit as st
+import streamlit.components.v1 as components
 from datetime import date, timedelta
 from streamlit_folium import st_folium
 
@@ -141,11 +142,15 @@ def _inject_css() -> None:
         height: calc(100vh - 65px) !important;
     }
 
-    /* ── Date picker — push calendar dialog down so nav row isn't clipped ── */
-    div[role="dialog"] {
-        margin-top: 80px !important;
-        z-index: 999999 !important;
-        position: fixed !important;
+    /* ── Date picker — every known Baseweb/Streamlit calendar container ── */
+    [data-baseweb="popover"] {
+        transform: translateY(40px) !important;
+    }
+    [role="dialog"] > div {
+        padding-top: 40px !important;
+    }
+    li[data-baseweb="menu-item"] {
+        display: block !important;
     }
 
     /* ── Top info bar ── */
@@ -207,8 +212,52 @@ def _init_session_state() -> None:
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 
+def _inject_calendar_fix() -> None:
+    """
+    MutationObserver that watches for Baseweb calendar popovers appearing in
+    the parent document (they render as a portal at the bottom of the DOM,
+    outside the sidebar) and nudges them down so the month/year nav row is
+    fully visible.  Injected via components.html so the <script> is not
+    stripped by Streamlit's markdown sanitiser.
+    """
+    components.html("""
+    <script>
+    (function () {
+        var doc = window.parent.document;
+        function nudgePopover(calNode) {
+            var el = calNode;
+            for (var i = 0; i < 12; i++) {
+                if (!el || el === doc.body) break;
+                if (el.getAttribute && el.getAttribute('data-baseweb') === 'popover') {
+                    el.style.marginTop = '52px';
+                    el.style.top = 'auto';
+                    return;
+                }
+                el = el.parentElement;
+            }
+        }
+        var observer = new MutationObserver(function (mutations) {
+            mutations.forEach(function (m) {
+                m.addedNodes.forEach(function (node) {
+                    if (node.nodeType !== 1) return;
+                    if (node.getAttribute && node.getAttribute('data-baseweb') === 'calendar') {
+                        nudgePopover(node);
+                    }
+                    if (node.querySelectorAll) {
+                        node.querySelectorAll('[data-baseweb="calendar"]').forEach(nudgePopover);
+                    }
+                });
+            });
+        });
+        observer.observe(doc.body, { childList: true, subtree: true });
+    })();
+    </script>
+    """, height=0)
+
+
 def main() -> None:
     _inject_css()
+    _inject_calendar_fix()
     _init_session_state()
 
     # Sidebar renders first — writes to session_state
