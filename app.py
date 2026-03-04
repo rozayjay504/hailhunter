@@ -39,22 +39,24 @@ def _inject_css() -> None:
         overflow: hidden !important;
     }
 
-    /* ── Collapse the Streamlit toolbar to zero height ── */
+    /* ── Header: transparent background, natural height, no chrome ── */
     [data-testid="stHeader"] {
-        height: 0 !important;
-        min-height: 0 !important;
-        overflow: visible !important;
-        padding: 0 !important;
+        background: transparent !important;
     }
-    /* ── Hide chrome we don't need ── */
+    /* ── Hide the deploy button but leave header layout intact ── */
+    [data-testid="stToolbar"] {
+        visibility: hidden !important;
+    }
+    /* ── Hide other unwanted chrome ── */
     #MainMenu, footer { visibility: hidden; }
 
-    /* ── Sidebar collapse/expand arrow — always visible ── */
+    /* ── Sidebar collapse/expand arrow — always clearly visible ── */
     [data-testid="stSidebarCollapsedControl"] {
         visibility: visible !important;
+        opacity: 1 !important;
         position: fixed !important;
-        top: 8px !important;
-        left: 8px !important;
+        top: 40px !important;
+        left: 0 !important;
         z-index: 99999 !important;
     }
 
@@ -139,7 +141,7 @@ def _inject_css() -> None:
     .stIFrame, iframe {
         border-radius: 8px !important;
         border: 1px solid rgba(255, 255, 255, 0.06) !important;
-        height: calc(100vh - 65px) !important;
+        height: calc(100vh - 120px) !important;
     }
 
     /* ── Date picker — every known Baseweb/Streamlit calendar container ── */
