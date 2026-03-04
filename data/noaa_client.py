@@ -27,7 +27,7 @@ import io
 import logging
 import os
 import re
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 
 import requests
@@ -194,17 +194,26 @@ def _damage_to_homes(damage_usd: float, event_type: str, severity: int) -> int:
 def _parse_ncei_date(s: str) -> Optional[date]:
     """
     Parse NCEI BEGIN_DATE_TIME.
-    Observed formats: 'M/D/YYYY H:MM:SS'  or  'YYYY-MM-DDTHH:MM:SS'
+    Observed formats:
+      'M/D/YYYY H:MM:SS'      — older exports
+      '31-MAR-25 11:04:00'    — current exports (day-MON-2digit_year)
+      'YYYY-MM-DDTHH:MM:SS'   — ISO variant
     """
     if not s:
         return None
     s = s.strip()
-    try:
-        date_part = s.split()[0]           # drop time component
-        if "/" in date_part:
-            m, d, y = date_part.split("/")
+    if "/" in s:
+        try:
+            m, d, y = s.split()[0].split("/")
             return date(int(y), int(m), int(d))
-        return date.fromisoformat(date_part[:10])
+        except Exception:
+            pass
+    try:
+        return datetime.strptime(s, "%d-%b-%y %H:%M:%S").date()
+    except ValueError:
+        pass
+    try:
+        return date.fromisoformat(s[:10])
     except Exception:
         return None
 
