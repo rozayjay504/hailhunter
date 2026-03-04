@@ -10,6 +10,7 @@ from streamlit_folium import st_folium
 from components.filters import render_sidebar, get_active_filters
 from components.map import build_map
 from data.pipeline import get_storms, filter_storms
+from utils.constants import REGIONS, REGION_MAP_CONFIG, MAP_EVENT_CAP
 
 
 # ── Page config (must be first Streamlit call) ─────────────────────────────────
@@ -155,13 +156,15 @@ def _init_session_state() -> None:
         # Filters
         "storm_types":      ["Hail", "Wind", "Hurricane", "Tropical Storm"],
         "hail_size_min":    0.75,
-        "date_preset":      "90D",
-        "date_start":       date.today() - timedelta(days=90),
+        "date_preset":      "30D",
+        "date_start":       date.today() - timedelta(days=30),
         "date_end":         date.today(),
         "home_age_min":     0,
         "home_age_max":     50,
         "owner_type":       "All",
         "severity_min":     1,
+        "selected_region":  "Southeast",
+        "selected_states":  list(REGIONS["Southeast"]),
         # Map interaction (Phase 3+)
         "selected_zone":    None,
         "saved_zones":      [],
@@ -191,18 +194,34 @@ def main() -> None:
     )
     filtered_df = filter_storms(raw_df, filters)
 
-    # Write the count badge now — after filtering — so it is always current.
+    # Cap at MAP_EVENT_CAP, prioritising highest severity then most recent
+    total_filtered = len(filtered_df)
+    display_df = (
+        filtered_df
+        .sort_values(["severity", "date"], ascending=[False, False])
+        .head(MAP_EVENT_CAP)
+        .reset_index(drop=True)
+    )
+
+    # Sidebar: count badge + cap notice
     with st.sidebar:
         st.markdown('<div class="filter-divider"></div>', unsafe_allow_html=True)
         st.markdown(
             f'<div style="text-align:center;color:#6B7280;font-size:11px;padding:8px 0;">'
-            f'<span style="color:#FF6B35;font-weight:700;">{len(filtered_df)}</span>'
+            f'<span style="color:#FF6B35;font-weight:700;">{len(display_df)}</span>'
             f' storm events visible</div>',
             unsafe_allow_html=True,
         )
+        if total_filtered > MAP_EVENT_CAP:
+            st.markdown(
+                f'<div style="text-align:center;color:#6B7280;font-size:10px;padding:0 0 6px;">'
+                f'Showing {MAP_EVENT_CAP} of {total_filtered} — narrow filters to see all.'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
     # ── Top bar ──────────────────────────────────────────────────────────────
-    n = len(filtered_df)
+    n = len(display_df)
     total = len(raw_df)
     src_color = "#10B981" if data_source == "live" else "#6B7280"
     src_label = "LIVE" if data_source == "live" else "MOCK"
@@ -220,7 +239,11 @@ def main() -> None:
     )
 
     # ── Map ──────────────────────────────────────────────────────────────────
-    folium_map = build_map(filtered_df)
+    region_cfg = REGION_MAP_CONFIG.get(
+        st.session_state.get("selected_region", "Southeast"),
+        REGION_MAP_CONFIG["All States"],
+    )
+    folium_map = build_map(display_df, center=region_cfg["center"], zoom=region_cfg["zoom"])
 
     map_return = st_folium(
         folium_map,

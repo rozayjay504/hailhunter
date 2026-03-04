@@ -18,12 +18,16 @@ from utils.constants import (
 
 # ── Public ─────────────────────────────────────────────────────────────────────
 
-def build_map(df: pd.DataFrame) -> folium.Map:
+def build_map(
+    df: pd.DataFrame,
+    center: list | None = None,
+    zoom: int | None = None,
+) -> folium.Map:
     """Build and return a fully configured dark Folium map with storm overlays."""
 
     m = folium.Map(
-        location=MAP_CENTER,
-        zoom_start=MAP_ZOOM,
+        location=center or MAP_CENTER,
+        zoom_start=zoom or MAP_ZOOM,
         tiles=None,
         prefer_canvas=True,
         zoom_control=True,

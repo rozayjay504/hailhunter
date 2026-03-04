@@ -38,6 +38,28 @@ HAIL_SIZE_MARKS = {
 HAIL_SIZE_MIN = 0.75
 HAIL_SIZE_MAX = 3.00
 
+# Region definitions — state lists and map viewport per region
+REGIONS: dict[str, list[str]] = {
+    "Southeast": ["FL", "TX", "LA", "MS", "AL", "GA", "NC", "SC"],
+    "Northeast": ["NY", "PA", "NJ", "CT", "MA", "RI", "VT", "NH", "ME", "MD", "DE"],
+    "Midwest":   ["IL", "IN", "OH", "MI", "WI", "MN", "IA", "MO", "ND", "SD", "NE", "KS"],
+    "Southwest": ["AZ", "NM", "NV", "UT", "CO"],
+    "Northwest": ["WA", "OR", "ID", "MT", "WY"],
+    "All States": [],
+}
+
+REGION_MAP_CONFIG: dict[str, dict] = {
+    "Southeast": {"center": [32.5,  -83.5],  "zoom": 6},
+    "Northeast": {"center": [42.5,  -74.0],  "zoom": 6},
+    "Midwest":   {"center": [41.5,  -93.0],  "zoom": 5},
+    "Southwest": {"center": [36.0, -111.0],  "zoom": 6},
+    "Northwest": {"center": [46.0, -116.0],  "zoom": 6},
+    "All States": {"center": [38.0,  -96.0], "zoom": 4},
+}
+
+# Maximum storm events rendered on the map at once
+MAP_EVENT_CAP = 500
+
 # Map defaults
 MAP_CENTER = [39.5, -98.35]
 MAP_ZOOM = 5

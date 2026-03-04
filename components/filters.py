@@ -8,7 +8,7 @@ caller via get_active_filters().
 
 import streamlit as st
 from datetime import date, timedelta
-from utils.constants import STORM_TYPES, HAIL_SIZE_MARKS, HAIL_SIZE_MIN, HAIL_SIZE_MAX
+from utils.constants import STORM_TYPES, HAIL_SIZE_MARKS, HAIL_SIZE_MIN, HAIL_SIZE_MAX, REGIONS
 
 
 def _section(label: str) -> None:
@@ -27,6 +27,41 @@ def render_sidebar() -> None:
             <p>Storm Intelligence Platform</p>
         </div>
         """, unsafe_allow_html=True)
+
+        # ── Region ───────────────────────────────────────────────────────────
+        _section("Region")
+        region_options = list(REGIONS.keys())
+        region_idx = region_options.index(st.session_state.selected_region) \
+            if st.session_state.selected_region in region_options else 0
+        selected_region = st.selectbox(
+            "region_selector_label",
+            options=region_options,
+            index=region_idx,
+            key="region_selectbox",
+            label_visibility="collapsed",
+        )
+        # When region changes reset state selection to all states in new region
+        if selected_region != st.session_state.selected_region:
+            st.session_state.selected_region = selected_region
+            st.session_state.selected_states = list(REGIONS[selected_region])
+
+        # ── States ───────────────────────────────────────────────────────────
+        region_states = REGIONS[selected_region]
+        if region_states:
+            _section("States")
+            # Key changes with region so widget re-renders fresh on region switch
+            selected_states = st.multiselect(
+                "states_multiselect_label",
+                options=region_states,
+                default=st.session_state.selected_states or region_states,
+                key=f"states_ms_{selected_region}",
+                label_visibility="collapsed",
+            )
+            st.session_state.selected_states = list(selected_states)
+        else:
+            st.session_state.selected_states = []
+
+        st.markdown('<div class="filter-divider"></div>', unsafe_allow_html=True)
 
         # ── Storm Type ────────────────────────────────────────────────────────
         _section("Storm Type")
@@ -163,12 +198,13 @@ def render_sidebar() -> None:
 def get_active_filters() -> dict:
     """Return the current filter state as a plain dict for use in data/map layers."""
     return {
-        "storm_types":   st.session_state.get("storm_types", STORM_TYPES),
-        "hail_size_min": st.session_state.get("hail_size_min", HAIL_SIZE_MIN),
-        "date_start":    st.session_state.get("date_start"),
-        "date_end":      st.session_state.get("date_end"),
-        "home_age_min":  st.session_state.get("home_age_min", 0),
-        "home_age_max":  st.session_state.get("home_age_max", 50),
-        "owner_type":    st.session_state.get("owner_type", "All"),
-        "severity_min":  st.session_state.get("severity_min", 1),
+        "storm_types":     st.session_state.get("storm_types", STORM_TYPES),
+        "hail_size_min":   st.session_state.get("hail_size_min", HAIL_SIZE_MIN),
+        "date_start":      st.session_state.get("date_start"),
+        "date_end":        st.session_state.get("date_end"),
+        "home_age_min":    st.session_state.get("home_age_min", 0),
+        "home_age_max":    st.session_state.get("home_age_max", 50),
+        "owner_type":      st.session_state.get("owner_type", "All"),
+        "severity_min":    st.session_state.get("severity_min", 1),
+        "selected_states": st.session_state.get("selected_states", []),
     }
