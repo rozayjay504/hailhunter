@@ -184,15 +184,58 @@ def _parse_ncei_date(s: str) -> Optional[date]:
 
 # ── NCEI Storm Events CSV ──────────────────────────────────────────────────────
 
-def _find_csv_filename(year: int, index_html: str) -> Optional[str]:
+def find_ncei_filename(year: int, index_html: str) -> Optional[str]:
     """
     Scan the NCEI directory listing HTML for the latest details file for a year.
     NCEI filenames: StormEvents_details-ftp_v1.0_d{YEAR}_c{CREATED}.gz
-    Multiple versions may exist; we take the highest (latest) creation date.
+    Multiple versions may exist; we take the highest creation date (last sorted).
+    The creation-date suffix acts as a natural cache-buster in pipeline.py:
+    if NCEI re-publishes a year's file, the new filename produces a new cache key.
     """
     pattern = rf"StormEvents_details-ftp_v1\.0_d{year}_c\d+\.gz"
     matches = re.findall(pattern, index_html)
     return sorted(matches)[-1] if matches else None
+
+
+def fetch_ncei_index_html() -> str:
+    """Fetch the raw HTML of the NCEI storm-events CSV directory listing."""
+    resp = requests.get(NCEI_INDEX_URL, timeout=TIMEOUT_INDEX)
+    resp.raise_for_status()
+    return resp.text
+
+
+def fetch_ncei_year_records(filename: str) -> list[dict]:
+    """
+    Download and fully parse one annual NCEI Storm Events detail CSV.
+
+    Returns ALL relevant records for the year with no date filtering —
+    the caller (pipeline.py) applies the date window after assembling
+    records from one or more cached annual files.
+
+    filename: exact name from the NCEI index, e.g.
+              'StormEvents_details-ftp_v1.0_d2025_c20260301.gz'
+    """
+    url = NCEI_INDEX_URL + filename
+    log.info("Downloading NCEI: %s", url)
+    resp = requests.get(url, timeout=TIMEOUT_CSV)
+    resp.raise_for_status()
+
+    records: list[dict] = []
+    try:
+        with gzip.open(io.BytesIO(resp.content)) as gz:
+            reader = csv.DictReader(io.TextIOWrapper(gz, encoding="latin-1"))
+            for row in reader:
+                et = NCEI_TYPE_MAP.get(row.get("EVENT_TYPE", ""))
+                if et is None:
+                    continue
+                record = _ncei_row_to_record(row, et)
+                if record is not None:
+                    records.append(record)
+    except Exception as exc:
+        log.warning("NCEI parse error (%s): %s", filename, exc)
+
+    log.info("NCEI %s: %d relevant records parsed", filename, len(records))
+    return records
 
 
 def _ncei_row_to_record(row: dict, event_type: str) -> Optional[dict]:
@@ -288,60 +331,6 @@ def _ncei_row_to_record(row: dict, event_type: str) -> Optional[dict]:
     except Exception as exc:
         log.debug("Skipping NCEI row (EVENT_ID=%s): %s", row.get("EVENT_ID"), exc)
         return None
-
-
-def fetch_ncei_storms(start_date: date, end_date: date) -> list[dict]:
-    """
-    Download NCEI Storm Events detail CSV files for all years in [start_date, end_date]
-    and return records normalized to our schema.
-
-    Files are 30–80 MB compressed. Streamlit's @st.cache_data in pipeline.py
-    ensures this download only happens once per 6-hour window.
-    """
-    try:
-        resp = requests.get(NCEI_INDEX_URL, timeout=TIMEOUT_INDEX)
-        resp.raise_for_status()
-        index_html = resp.text
-    except Exception as exc:
-        log.warning("NCEI index fetch failed: %s", exc)
-        return []
-
-    records: list[dict] = []
-    years = sorted({start_date.year, end_date.year})
-
-    for year in years:
-        filename = _find_csv_filename(year, index_html)
-        if not filename:
-            log.warning("No NCEI details file found for year %d (may not be published yet)", year)
-            continue
-
-        url = NCEI_INDEX_URL + filename
-        log.info("Downloading NCEI storm events: %s", url)
-        try:
-            csv_resp = requests.get(url, timeout=TIMEOUT_CSV)
-            csv_resp.raise_for_status()
-        except Exception as exc:
-            log.warning("NCEI download failed (%s): %s", filename, exc)
-            continue
-
-        try:
-            with gzip.open(io.BytesIO(csv_resp.content)) as gz:
-                reader = csv.DictReader(io.TextIOWrapper(gz, encoding="latin-1"))
-                for row in reader:
-                    et = NCEI_TYPE_MAP.get(row.get("EVENT_TYPE", ""))
-                    if et is None:
-                        continue
-                    record = _ncei_row_to_record(row, et)
-                    if record is None:
-                        continue
-                    if not (start_date <= record["date"] <= end_date):
-                        continue
-                    records.append(record)
-        except Exception as exc:
-            log.warning("NCEI parse error (%s): %s", filename, exc)
-
-    log.info("NCEI: %d records for %s → %s", len(records), start_date, end_date)
-    return records
 
 
 # ── NWS Active Alerts ──────────────────────────────────────────────────────────

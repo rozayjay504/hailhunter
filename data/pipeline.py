@@ -4,20 +4,31 @@ Phase 2 data pipeline — public interface for the app.
 Public API
 ──────────
   get_storms(start_date, end_date) → (DataFrame, source_label)
-      Fetches live NOAA data, enforces the schema, and returns the full
-      unfiltered DataFrame plus a label: "live" | "mock".
-      Falls back to mock data automatically on any failure or empty result.
+      Returns live NOAA storm events normalized to the HailHunter schema,
+      or mock data if live sources are unavailable.
 
   filter_storms(df, filters) → DataFrame
-      Re-exported from mock_storms — schema is identical, so the same
-      filter logic applies to both live and mock data unchanged.
+      Re-exported from mock_storms — schema is identical for both live
+      and mock DataFrames, so the same filter logic applies to both.
 
-Caching
-───────
-  _fetch_live_data() is decorated with @st.cache_data(ttl=6h) so the
-  30–80 MB NCEI CSV download only happens once per 6-hour window per
-  unique (start_date, end_date) pair.  Filter changes that don't alter
-  the date range hit the cache instantly.
+Caching strategy
+────────────────
+  Annual CSV files are the expensive part (30–80 MB each, compressed).
+  They are cached INDEPENDENTLY, keyed by the exact NCEI filename which
+  already embeds the file's creation date, e.g.:
+
+      StormEvents_details-ftp_v1.0_d2025_c20260301.gz
+                                        ────────────
+                                        creation date = natural cache-buster
+
+  This means:
+  • The 2025 CSV is downloaded once and reused for any query that includes 2025.
+  • Changing the date range (e.g. 90D → year-long) does NOT re-download files
+    that are already cached — it just re-slices from the cached annual data.
+  • If NCEI publishes an updated file (new creation date), the filename changes
+    and the old cache entry is no longer referenced — automatic invalidation.
+  • Each calendar year in the requested range is fetched independently, so a
+    3-year span correctly downloads and caches 3 separate files.
 
 Schema (all columns, all rows)
 ──────────────────────────────
@@ -46,9 +57,14 @@ from typing import Optional
 import pandas as pd
 import streamlit as st
 
-# filter_storms is re-exported so app.py only needs one import
+# filter_storms re-exported so app.py has a single import point
 from data.mock_storms import filter_storms, get_mock_storms  # noqa: F401
-from data.noaa_client import fetch_ncei_storms, fetch_nws_alerts
+from data.noaa_client import (
+    fetch_ncei_index_html,
+    fetch_ncei_year_records,
+    fetch_nws_alerts,
+    find_ncei_filename,
+)
 
 log = logging.getLogger(__name__)
 
@@ -71,8 +87,6 @@ _SCHEMA: dict[str, str] = {
     "description":   "object",
 }
 
-# Fallback threshold: if live data returns fewer events than this we
-# consider it a degraded response and supplement with mock data.
 _MIN_LIVE_RECORDS = 5
 
 
@@ -91,43 +105,89 @@ def _enforce_schema(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+# ── Per-layer caches ───────────────────────────────────────────────────────────
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _ncei_index() -> str:
+    """Cache the NCEI directory listing HTML for 1 hour."""
+    return fetch_ncei_index_html()
+
+
 @st.cache_data(
     ttl=3600 * 6,
-    show_spinner="Fetching storm data from NOAA…",
+    show_spinner="Downloading NCEI storm data…",
 )
-def _fetch_live_data(start_date: date, end_date: date) -> list[dict]:
+def _ncei_year(filename: str) -> list[dict]:
     """
-    Download NCEI Storm Events CSV(s) + NWS active alerts.
-    Cached for 6 hours per unique (start_date, end_date) pair.
-    Returns a flat list of raw schema dicts.
-    """
-    records = fetch_ncei_storms(start_date, end_date)
+    Cache one annual NCEI CSV keyed by its exact filename.
 
-    # Merge NWS real-time alerts — deduplicate against NCEI by (lat, lon, date)
+    The filename contains the NCEI creation date (e.g. _c20260301.gz), so:
+    • Changing the date range hits this cache and returns instantly —
+      no re-download needed for years already fetched.
+    • If NCEI re-publishes a year with a new creation date, the new
+      filename is a different key and the updated file is downloaded.
+    """
+    return fetch_ncei_year_records(filename)
+
+
+# ── Assembly ───────────────────────────────────────────────────────────────────
+
+def _assemble_live(start_date: date, end_date: date) -> list[dict]:
+    """
+    Assemble storm events for [start_date, end_date] from per-year cache entries.
+
+    Covers every calendar year in the range via range(), so a span like
+    Jan 2024 – Mar 2026 correctly fetches 2024, 2025, and 2026 files.
+    Date filtering is applied after assembling the full multi-year pool.
+    NWS active alerts are merged in to cover the NCEI publication lag.
+    """
+    try:
+        index_html = _ncei_index()
+    except Exception as exc:
+        log.warning("NCEI index unavailable: %s", exc)
+        return []
+
+    records: list[dict] = []
+    for year in range(start_date.year, end_date.year + 1):
+        filename = find_ncei_filename(year, index_html)
+        if not filename:
+            log.warning("No NCEI file for year %d (not yet published)", year)
+            continue
+        try:
+            year_records = _ncei_year(filename)
+            records.extend(year_records)
+        except Exception as exc:
+            log.warning("NCEI year %d failed (%s): %s", year, filename, exc)
+
+    # Apply date window across the assembled multi-year pool
+    records = [r for r in records if start_date <= r["date"] <= end_date]
+
+    # Merge NWS real-time alerts (fills the NCEI lag for the last few days)
     ncei_keys = {(r["lat"], r["lon"], str(r["date"])) for r in records}
     for alert in fetch_nws_alerts():
         key = (alert["lat"], alert["lon"], str(alert["date"]))
-        if key not in ncei_keys:
+        if key not in ncei_keys and start_date <= alert["date"] <= end_date:
             records.append(alert)
             ncei_keys.add(key)
 
-    log.info("Live data total: %d records (%s → %s)", len(records), start_date, end_date)
+    log.info("Assembled %d records for %s → %s", len(records), start_date, end_date)
     return records
 
+
+# ── Public interface ───────────────────────────────────────────────────────────
 
 def get_storms(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
 ) -> tuple[pd.DataFrame, str]:
     """
-    Fetch real NOAA storm events for the given date range.
+    Return storm events for the given date range as (DataFrame, source_label).
+    source_label is "live" when NOAA data loads successfully, "mock" otherwise.
 
-    Returns:
-        (df, source) where source is "live" or "mock".
-
-    Falls back to mock data and logs a warning when:
-      - Any exception occurs during the live fetch
-      - Live data returns fewer than _MIN_LIVE_RECORDS events
+    Falls back to mock data when:
+      • Any exception occurs during the live fetch
+      • Live data returns fewer than _MIN_LIVE_RECORDS events (NCEI lag /
+        no data yet published for that date range)
     """
     if start_date is None:
         start_date = date.today() - timedelta(days=90)
@@ -135,13 +195,13 @@ def get_storms(
         end_date = date.today()
 
     try:
-        records = _fetch_live_data(start_date, end_date)
+        records = _assemble_live(start_date, end_date)
 
         if len(records) < _MIN_LIVE_RECORDS:
             log.warning(
-                "Live data returned only %d records — falling back to mock data. "
-                "NCEI may not have published data for this date range yet.",
-                len(records),
+                "Live data returned only %d records for %s → %s — "
+                "falling back to mock data (NCEI may not have published yet).",
+                len(records), start_date, end_date,
             )
             return _mock_fallback()
 
