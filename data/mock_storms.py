@@ -467,10 +467,11 @@ def filter_storms(df: pd.DataFrame, filters: dict) -> pd.DataFrame:
     sev_min = filters.get("severity_min", 1)
     mask &= df["severity"] >= sev_min
 
-    # State filter (empty list = no restriction; "US" = NWS alert with no
-    # precise state, always shown regardless of region selection)
+    # State filter — empty list means "All States" (no restriction).
+    # NWS alerts carry state="US"; only let them through when no specific
+    # region is selected (i.e. selected_states is empty).
     selected_states = filters.get("selected_states", [])
     if selected_states:
-        mask &= df["state"].isin(selected_states) | (df["state"] == "US")
+        mask &= df["state"].isin(selected_states)
 
     return df[mask].reset_index(drop=True)

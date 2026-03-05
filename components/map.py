@@ -6,7 +6,6 @@ DataFrame and returns a configured folium.Map ready for st_folium().
 """
 
 import folium
-import pandas as pd
 from branca.element import MacroElement
 from jinja2 import Template
 
@@ -60,9 +59,8 @@ def _add_storm_markers(m: folium.Map, df: pd.DataFrame) -> None:
         color = SEVERITY_COLORS[severity]
         radius = SEVERITY_RADIUS[severity]
 
-        # Build popup HTML
-        popup_html = _popup_html(row)
-        tooltip_text = f"{row['city']}, {row['state']} — {row['event_type']} ({SEVERITY_LABELS[severity]})"
+        date_str = row["date"].strftime("%b %d, %Y") if hasattr(row["date"], "strftime") else str(row["date"])
+        tooltip_text = f"{row['city']}, {row['state']}  ·  {row['event_type']}  ·  {date_str}"
 
         folium.CircleMarker(
             location=[row["lat"], row["lon"]],
@@ -73,62 +71,12 @@ def _add_storm_markers(m: folium.Map, df: pd.DataFrame) -> None:
             fill_opacity=0.35,
             weight=2,
             opacity=0.9,
-            popup=folium.Popup(popup_html, max_width=280),
             tooltip=folium.Tooltip(tooltip_text, style=(
                 "background-color:#0D1117; color:#E5E7EB; "
                 "border:1px solid rgba(255,255,255,0.1); "
                 "border-radius:4px; font-size:12px; padding:4px 8px;"
             )),
         ).add_to(m)
-
-
-def _popup_html(row: pd.Series) -> str:
-    """Return styled HTML string for a marker popup."""
-    color = SEVERITY_COLORS[row["severity"]]
-    sev_label = SEVERITY_LABELS[row["severity"]]
-
-    # Hail size line (only for Hail events)
-    hail_line = ""
-    if row["event_type"] == "Hail" and pd.notna(row.get("hail_size")):
-        hail_line = f'<div class="pp-row"><span class="pp-key">Hail Size</span><span class="pp-val">{row["hail_size"]:.2f}"</span></div>'
-
-    # Wind speed line (for wind/hurricane/tropical events)
-    wind_line = ""
-    if row["event_type"] != "Hail" and pd.notna(row.get("wind_speed")):
-        wind_line = f'<div class="pp-row"><span class="pp-key">Wind Speed</span><span class="pp-val">{int(row["wind_speed"])} mph</span></div>'
-
-    date_str = row["date"].strftime("%b %d, %Y") if hasattr(row["date"], "strftime") else str(row["date"])
-    owner_pct = int(row["owner_pct"] * 100)
-
-    return f"""
-    <div style="
-        background:#111827; color:#E5E7EB;
-        padding:14px 16px; border-radius:8px;
-        min-width:230px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-        border-top:3px solid {color};
-    ">
-        <style>
-            .pp-title{{font-size:14px;font-weight:700;margin-bottom:3px;}}
-            .pp-meta{{font-size:10px;color:#9CA3AF;letter-spacing:.05em;margin-bottom:10px;text-transform:uppercase;}}
-            .pp-row{{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05);}}
-            .pp-key{{color:#9CA3AF;}}
-            .pp-val{{color:#E5E7EB;font-weight:600;}}
-            .pp-sev{{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;background:{color}22;color:{color};border:1px solid {color}55;}}
-        </style>
-        <div class="pp-title">{row['city']}, {row['state']}</div>
-        <div class="pp-meta">{date_str} &middot; {row['event_type']} &middot; {row['county']} Co.</div>
-        <div class="pp-row">
-            <span class="pp-key">Severity</span>
-            <span class="pp-sev">{sev_label}</span>
-        </div>
-        {hail_line}
-        {wind_line}
-        <div class="pp-row"><span class="pp-key">Homes Affected</span><span class="pp-val">{row['homes_affected']:,}</span></div>
-        <div class="pp-row"><span class="pp-key">Avg Roof Age</span><span class="pp-val">{row['avg_roof_age']} yrs</span></div>
-        <div class="pp-row"><span class="pp-key">Owner-Occupied</span><span class="pp-val">{owner_pct}%</span></div>
-        <div style="margin-top:8px;font-size:10px;color:#6B7280;font-style:italic;">{row['description']}</div>
-    </div>
-    """
 
 
 def _add_legend(m: folium.Map) -> None:
