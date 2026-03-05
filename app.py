@@ -123,7 +123,7 @@ def _inject_css() -> None:
     .stIFrame, iframe {
         border-radius: 8px !important;
         border: 1px solid rgba(255, 255, 255, 0.06) !important;
-        height: calc(100vh - 120px) !important;
+        height: calc(100vh - 140px) !important;
     }
 
     /* ── Date picker — every known Baseweb/Streamlit calendar container ── */
@@ -144,7 +144,7 @@ def _inject_css() -> None:
         justify-content: space-between;
         padding: 6px 4px 8px;
         border-bottom: 1px solid rgba(255,255,255,0.05);
-        margin-top: 8px;
+        margin-top: 28px;
         margin-bottom: 6px;
     }
     .top-bar-title {
