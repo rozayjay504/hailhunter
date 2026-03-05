@@ -61,7 +61,18 @@ def _add_storm_markers(m: folium.Map, df: pd.DataFrame) -> None:
         radius = SEVERITY_RADIUS[severity]
 
         date_str = row["date"].strftime("%b %d, %Y") if hasattr(row["date"], "strftime") else str(row["date"])
-        tooltip_text = f"{row['city']}, {row['state']}  ·  {row['event_type']}  ·  {date_str}"
+        tooltip_html = (
+            f'<div style="background:rgba(13,17,23,0.95);border:none;border-radius:8px;'
+            f'padding:7px 11px;box-shadow:0 2px 12px rgba(0,0,0,0.6);'
+            f'font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;">'
+            f'<div style="font-size:13px;font-weight:700;color:#E5E7EB;line-height:1.2;">'
+            f"{row['city']}, {row['state']}"
+            f'</div>'
+            f'<div style="font-size:11px;color:#6B7280;margin-top:2px;">'
+            f"{row['event_type']} &nbsp;·&nbsp; {date_str}"
+            f'</div>'
+            f'</div>'
+        )
 
         folium.CircleMarker(
             location=[row["lat"], row["lon"]],
@@ -72,11 +83,8 @@ def _add_storm_markers(m: folium.Map, df: pd.DataFrame) -> None:
             fill_opacity=0.35,
             weight=2,
             opacity=0.9,
-            tooltip=folium.Tooltip(tooltip_text, style=(
-                "background-color:#0D1117; color:#E5E7EB; "
-                "border:1px solid rgba(255,255,255,0.1); "
-                "border-radius:4px; font-size:12px; padding:4px 8px;"
-            )),
+            popup=folium.Popup("", max_width=1),   # empty popup — required for last_object_clicked
+            tooltip=folium.Tooltip(tooltip_html, sticky=False),
         ).add_to(m)
 
 
