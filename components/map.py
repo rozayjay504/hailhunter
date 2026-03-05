@@ -47,6 +47,7 @@ def build_map(
 
     # UI overlays (injected into map iframe HTML)
     _add_legend(m)
+    _hide_popup_chrome(m)
 
     return m
 
@@ -202,6 +203,17 @@ def _add_toolbar(m: folium.Map) -> None:
     </div>
     """
     _inject_html(m, toolbar_html)
+
+
+def _hide_popup_chrome(m: folium.Map) -> None:
+    """Suppress the Leaflet popup bubble rendered by the empty click-capture Popup."""
+    _inject_html(m, """
+    <style>
+        .leaflet-popup-content-wrapper,
+        .leaflet-popup-tip-container,
+        .leaflet-popup-tip { display: none !important; }
+    </style>
+    """)
 
 
 def _inject_html(m: folium.Map, html: str) -> None:

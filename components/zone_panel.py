@@ -49,14 +49,14 @@ def events_within_radius(
 
 
 def find_nearest_event(
-    df: pd.DataFrame, lat: float, lon: float, tol: float = 0.001
+    df: pd.DataFrame, lat: float, lon: float, max_miles: float = 50.0
 ) -> "pd.Series | None":
-    """Return the DataFrame row closest to (lat, lon), or None if beyond *tol* degrees."""
+    """Return the DataFrame row closest to (lat, lon), or None if beyond *max_miles*."""
     if df.empty:
         return None
-    dists = (df["lat"] - lat).abs() + (df["lon"] - lon).abs()
+    dists = df.apply(lambda r: haversine_miles(lat, lon, r["lat"], r["lon"]), axis=1)
     idx = dists.idxmin()
-    return df.loc[idx] if dists[idx] <= tol else None
+    return df.loc[idx] if dists[idx] <= max_miles else None
 
 
 # ── Panel renderers ─────────────────────────────────────────────────────────────
