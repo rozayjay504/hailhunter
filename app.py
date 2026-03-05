@@ -10,6 +10,13 @@ from streamlit_folium import st_folium
 
 from components.filters import render_sidebar, get_active_filters
 from components.map import build_map
+from components.zone_panel import (
+    render_selection_tools,
+    render_zone_panel,
+    render_radius_panel,
+    events_within_radius,
+    find_nearest_event,
+)
 from data.pipeline import get_storms, filter_storms
 from utils.constants import REGIONS, REGION_MAP_CONFIG, MAP_EVENT_CAP
 
@@ -183,12 +190,18 @@ def _init_session_state() -> None:
         "severity_min":     1,
         "selected_region":  "Southeast",
         "selected_states":  list(REGIONS["Southeast"]),
-        # Map interaction (Phase 3+)
+        # Map interaction
         "selected_zone":    None,
         "saved_zones":      [],
         "map_return":       None,
-        # Map interaction (Phase 3+) — n_visible_storms removed; written
-        # directly to st.sidebar after filtering to avoid session-state lag.
+        # Phase 3 — click / pin+radius state
+        "selection_mode":   "click",
+        "pin_radius_miles": 25,
+        "pin_location":     None,
+        "clicked_lat":      None,
+        "clicked_lon":      None,
+        "_last_obj_click":  None,
+        "_last_map_click":  None,
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -300,21 +313,70 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    # ── Map ──────────────────────────────────────────────────────────────────
-    region_cfg = REGION_MAP_CONFIG.get(
-        st.session_state.get("selected_region", "Southeast"),
-        REGION_MAP_CONFIG["All States"],
-    )
-    folium_map = build_map(display_df, center=region_cfg["center"], zoom=region_cfg["zoom"])
+    # ── Two-column layout: map (left) + zone panel (right) ───────────────────
+    col_map, col_panel = st.columns([7, 3])
 
-    map_return = st_folium(
-        folium_map,
-        use_container_width=True,
-        height=760,
-        key="main_map",
-        returned_objects=[],   # Phase 1: no click handling needed
-    )
-    st.session_state.map_return = map_return
+    with col_map:
+        region_cfg = REGION_MAP_CONFIG.get(
+            st.session_state.get("selected_region", "Southeast"),
+            REGION_MAP_CONFIG["All States"],
+        )
+        folium_map = build_map(display_df, center=region_cfg["center"], zoom=region_cfg["zoom"])
+
+        map_return = st_folium(
+            folium_map,
+            use_container_width=True,
+            height=760,
+            key="main_map",
+            returned_objects=["last_object_clicked", "last_clicked"],
+        )
+        st.session_state.map_return = map_return
+
+    # ── Click processing (runs after map renders, before panel renders) ───────
+    obj_click = (map_return or {}).get("last_object_clicked") or {}
+    map_click  = (map_return or {}).get("last_clicked") or {}
+
+    # Marker click → store lat/lon for zone panel
+    if obj_click and obj_click != st.session_state.get("_last_obj_click"):
+        st.session_state._last_obj_click = obj_click
+        lat = obj_click.get("lat")
+        lon = obj_click.get("lng")
+        if lat is not None and lon is not None:
+            st.session_state.clicked_lat = lat
+            st.session_state.clicked_lon = lon
+            st.session_state.pin_location = None  # clear any radius pin
+
+    # Background map click → drop pin (only when in radius mode)
+    if (
+        st.session_state.get("selection_mode") == "radius"
+        and map_click
+        and map_click != st.session_state.get("_last_map_click")
+    ):
+        st.session_state._last_map_click = map_click
+        lat = map_click.get("lat")
+        lon = map_click.get("lng")
+        if lat is not None and lon is not None:
+            st.session_state.pin_location = (lat, lon)
+            st.session_state.clicked_lat = None
+            st.session_state.clicked_lon = None
+
+    # ── Right panel ───────────────────────────────────────────────────────────
+    with col_panel:
+        render_selection_tools()
+
+        clat = st.session_state.get("clicked_lat")
+        clon = st.session_state.get("clicked_lon")
+        pin  = st.session_state.get("pin_location")
+
+        if clat is not None and clon is not None:
+            event = find_nearest_event(display_df, clat, clon)
+            if event is not None:
+                render_zone_panel(event, display_df)
+        elif st.session_state.get("selection_mode") == "radius" and pin is not None:
+            lat, lon = pin
+            radius = st.session_state.get("pin_radius_miles", 25)
+            nearby = events_within_radius(display_df, lat, lon, radius)
+            render_radius_panel(nearby, lat, lon, radius)
 
 
 if __name__ == "__main__":

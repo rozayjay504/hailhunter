@@ -47,7 +47,6 @@ def build_map(
 
     # UI overlays (injected into map iframe HTML)
     _add_legend(m)
-    _add_toolbar(m)
 
     return m
 
