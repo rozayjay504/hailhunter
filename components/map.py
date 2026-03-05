@@ -6,6 +6,7 @@ DataFrame and returns a configured folium.Map ready for st_folium().
 """
 
 import folium
+import pandas as pd
 from branca.element import MacroElement
 from jinja2 import Template
 
