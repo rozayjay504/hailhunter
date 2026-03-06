@@ -8,7 +8,7 @@ import streamlit.components.v1 as components
 from datetime import date, timedelta
 from streamlit_folium import st_folium
 
-from components.filters import render_sidebar, get_active_filters
+from components.filters import render_sidebar, get_active_filters, render_sidebar_footer
 from components.map import build_map
 from components.zone_panel import (
     render_selection_tools,
@@ -310,33 +310,13 @@ def main() -> None:
         .reset_index(drop=True)
     )
 
-    # Sidebar: count badge + cap notice + export button
-    with st.sidebar:
-        st.markdown('<div class="filter-divider"></div>', unsafe_allow_html=True)
-        st.markdown(
-            f'<div style="text-align:center;color:#6B7280;font-size:11px;padding:8px 0 4px;">'
-            f'<span style="color:#FF6B35;font-weight:700;">{len(display_df)}</span>'
-            f' storm events visible</div>',
-            unsafe_allow_html=True,
-        )
-        if total_filtered > MAP_EVENT_CAP:
-            st.markdown(
-                f'<div style="text-align:center;color:#6B7280;font-size:10px;padding:0 0 4px;">'
-                f'Showing {MAP_EVENT_CAP} of {total_filtered} — narrow filters to see all.'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-
-        st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
-        _all_leads = build_leads_df(display_df)
-        st.download_button(
-            "📥 Export All Visible (CSV)",
-            data=csv_bytes(_all_leads),
-            file_name="hailhunter_export.csv",
-            mime="text/csv",
-            use_container_width=True,
-            key="sidebar_export_csv",
-        )
+    # Sidebar footer: count badge + export button (same sidebar context as filters)
+    render_sidebar_footer(
+        n_display=len(display_df),
+        total_filtered=total_filtered,
+        map_event_cap=MAP_EVENT_CAP,
+        leads_csv=csv_bytes(build_leads_df(display_df)),
+    )
 
     # ── Top bar ───────────────────────────────────────────────────────────────
     n = len(display_df)
