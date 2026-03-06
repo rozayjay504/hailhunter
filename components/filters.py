@@ -40,10 +40,11 @@ def render_sidebar() -> None:
             key="region_selectbox",
             label_visibility="collapsed",
         )
-        # When region changes reset state selection to all states in new region
+        # When region changes reset state selection to the first state in new region
         if selected_region != st.session_state.selected_region:
             st.session_state.selected_region = selected_region
-            st.session_state.selected_states = list(REGIONS[selected_region])
+            region_list = list(REGIONS[selected_region])
+            st.session_state.selected_states = [region_list[0]] if region_list else []
 
         # ── States ───────────────────────────────────────────────────────────
         region_states = REGIONS[selected_region]

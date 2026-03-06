@@ -104,11 +104,11 @@ def _inject_css() -> None:
         font-size: 9px;
         font-weight: 800;
         letter-spacing: 0.16em;
-        color: #4B5563;
+        color: #6B7280;
         text-transform: uppercase;
         display: block;
         line-height: 1;
-        margin: 1.5rem 0 0.5rem;
+        margin: 1.6rem 0 0.5rem;
         padding: 0;
     }
 
@@ -218,7 +218,7 @@ def _init_session_state() -> None:
         "owner_type":       "All",
         "severity_min":     1,
         "selected_region":  "Southeast",
-        "selected_states":  list(REGIONS["Southeast"]),
+        "selected_states":  ["FL"],
         # Map interaction
         "selected_zone":    None,
         "saved_zones":      [],
@@ -310,23 +310,24 @@ def main() -> None:
         .reset_index(drop=True)
     )
 
-    # Sidebar: count badge + cap notice
+    # Sidebar: count badge + cap notice + export button
     with st.sidebar:
         st.markdown('<div class="filter-divider"></div>', unsafe_allow_html=True)
         st.markdown(
-            f'<div style="text-align:center;color:#6B7280;font-size:11px;padding:8px 0;">'
+            f'<div style="text-align:center;color:#6B7280;font-size:11px;padding:8px 0 4px;">'
             f'<span style="color:#FF6B35;font-weight:700;">{len(display_df)}</span>'
             f' storm events visible</div>',
             unsafe_allow_html=True,
         )
         if total_filtered > MAP_EVENT_CAP:
             st.markdown(
-                f'<div style="text-align:center;color:#6B7280;font-size:10px;padding:0 0 6px;">'
+                f'<div style="text-align:center;color:#6B7280;font-size:10px;padding:0 0 4px;">'
                 f'Showing {MAP_EVENT_CAP} of {total_filtered} — narrow filters to see all.'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
+        st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
         _all_leads = build_leads_df(display_df)
         st.download_button(
             "📥 Export All Visible (CSV)",
