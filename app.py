@@ -373,7 +373,7 @@ def main() -> None:
             slider_date=slider_date,
         )
 
-        map_height = 640 if tl_visible else 720
+        map_height = 600 if tl_visible else 700
         map_return = st_folium(
             folium_map,
             use_container_width=True,
