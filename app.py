@@ -161,11 +161,23 @@ def _inject_css() -> None:
         height: calc(100vh - 140px) !important;
     }
 
-    /* ── Right zone panel — scrollable column ── */
+    /* ── Right zone panel — scrollable column (broad selector sweep) ── */
     section[data-testid="stMain"] div[data-testid="column"]:nth-of-type(2) {
         overflow-y: auto !important;
         max-height: calc(100vh - 140px) !important;
         padding-bottom: 40px !important;
+    }
+    [data-testid="stColumns"] > div:last-child {
+        overflow-y: auto !important;
+        max-height: calc(100vh - 140px) !important;
+    }
+    [data-testid="stColumns"] > div:last-child > div {
+        overflow-y: auto !important;
+        max-height: calc(100vh - 140px) !important;
+    }
+    [data-testid="stVerticalBlockBorderWrapper"]:last-child {
+        overflow-y: auto !important;
+        max-height: calc(100vh - 140px) !important;
     }
 
     /* ── Date picker — every known Baseweb/Streamlit calendar container ── */

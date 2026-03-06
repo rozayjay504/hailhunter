@@ -139,6 +139,7 @@ def render_selection_tools() -> None:
 
 def render_zone_panel(event: pd.Series, all_df: pd.DataFrame, radius_miles: float = 25) -> None:
     """Zone Intelligence panel for a single clicked storm marker."""
+    st.markdown('<div style="overflow-y:auto;max-height:calc(100vh - 140px);padding-bottom:60px;" id="zone-scroll-container">', unsafe_allow_html=True)
     sev       = max(1, min(4, int(event["severity"])))
     color     = SEVERITY_COLORS[sev]
     sev_label = SEVERITY_LABELS[sev]
@@ -239,12 +240,14 @@ def render_zone_panel(event: pd.Series, all_df: pd.DataFrame, radius_miles: floa
             st.rerun()
 
     _render_ghl_push(owners, "event")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def render_radius_panel(
     events_df: pd.DataFrame, lat: float, lon: float, radius_miles: float
 ) -> None:
     """Zone Intelligence panel for a pin + radius selection."""
+    st.markdown('<div style="overflow-y:auto;max-height:calc(100vh - 140px);padding-bottom:60px;" id="zone-scroll-container">', unsafe_allow_html=True)
     n           = len(events_df)
     total_homes = int(events_df["homes_affected"].sum()) if n else 0
     leads       = int(total_homes * _LEAD_RATE)
@@ -331,6 +334,7 @@ def render_radius_panel(
             st.rerun()
 
     _render_ghl_push(owners, "radius")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ── Private helpers ──────────────────────────────────────────────────────────────
