@@ -354,6 +354,15 @@ def main() -> None:
                 st.session_state.timeline_playing = False
             st.rerun()
 
+    # ── Timeline strip (between top bar and map columns) ─────────────────────
+    if tl_visible and date_start and date_end:
+        st.markdown(
+            '<div style="border-bottom:1px solid rgba(255,255,255,0.06);'
+            'padding-bottom:4px;margin-bottom:4px;"></div>',
+            unsafe_allow_html=True,
+        )
+        render_timeline(date_start, date_end, display_df)
+
     # ── Two-column layout: map (left) + zone panel (right) ───────────────────
     col_map, col_panel = st.columns([7, 3])
 
@@ -369,10 +378,11 @@ def main() -> None:
             slider_date=slider_date,
         )
 
+        map_height = 620 if tl_visible else 760
         map_return = st_folium(
             folium_map,
             use_container_width=True,
-            height=760,
+            height=map_height,
             key="main_map",
             returned_objects=["last_object_clicked", "last_clicked"],
         )
@@ -424,14 +434,6 @@ def main() -> None:
             nearby = events_within_radius(display_df, lat, lon, radius)
             render_radius_panel(nearby, lat, lon, radius)
 
-    # ── Timeline section (full-width, below map+panel columns) ───────────────
-    if tl_visible and date_start and date_end:
-        st.markdown(
-            '<div style="border-top:1px solid rgba(255,255,255,0.06);'
-            'margin-top:6px;padding-top:8px;"></div>',
-            unsafe_allow_html=True,
-        )
-        render_timeline(date_start, date_end, display_df)
 
 
 if __name__ == "__main__":

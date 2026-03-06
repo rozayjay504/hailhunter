@@ -40,23 +40,26 @@ def render_timeline(
     all_df:     pd.DataFrame,
 ) -> date:
     """
-    Render the density chart, date slider, and play controls.
+    Render a compact single-row timeline strip (~80 px tall).
 
-    Returns the current slider date so the caller can use it to
-    filter the map (the same value is in st.session_state.timeline_date).
+    Layout: [density chart | ▶/⏸ | date label + slider | speed]
+    Everything sits in one horizontal row so it fits between the
+    top bar and the map without requiring any page scroll.
+
     Triggers auto-advance via time.sleep + st.rerun when playing.
+    Returns the current slider date.
     """
     init_timeline_state(date_start, date_end)
 
-    total_days  = max(1, (date_end - date_start).days)
-    cur_offset  = (st.session_state.timeline_date - date_start).days
-    cur_offset  = max(0, min(total_days, cur_offset))
+    total_days = max(1, (date_end - date_start).days)
+    cur_offset = (st.session_state.timeline_date - date_start).days
+    cur_offset = max(0, min(total_days, cur_offset))
 
-    # ── Density chart ─────────────────────────────────────────────────────────
-    _density_chart(all_df, date_start, date_end, st.session_state.timeline_date)
+    # Single row: density chart | play btn | date label+slider | speed
+    c_chart, c_play, c_slider, c_speed = st.columns([2, 1, 8, 1])
 
-    # ── Controls row ──────────────────────────────────────────────────────────
-    c_play, c_slider, c_speed = st.columns([1, 8, 1])
+    with c_chart:
+        _density_chart(all_df, date_start, date_end, st.session_state.timeline_date)
 
     with c_play:
         playing = st.session_state.timeline_playing
@@ -73,7 +76,7 @@ def render_timeline(
         cur_date_label = (date_start + timedelta(days=cur_offset)).strftime("%B %d, %Y")
         st.markdown(
             f'<div style="text-align:center;font-size:11px;font-weight:700;'
-            f'color:#FF6B35;letter-spacing:.06em;margin-bottom:-4px;">'
+            f'color:#FF6B35;letter-spacing:.06em;margin-bottom:-8px;">'
             f"{cur_date_label}</div>",
             unsafe_allow_html=True,
         )
@@ -87,7 +90,7 @@ def render_timeline(
         )
         if new_offset != cur_offset:
             st.session_state.timeline_date   = date_start + timedelta(days=new_offset)
-            st.session_state.timeline_playing = False   # stop on manual drag
+            st.session_state.timeline_playing = False
             st.rerun()
 
     with c_speed:
@@ -147,7 +150,7 @@ def _density_chart(
         )
     )
     fig.update_layout(
-        height=52,
+        height=50,
         margin=dict(l=0, r=0, t=0, b=0),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
