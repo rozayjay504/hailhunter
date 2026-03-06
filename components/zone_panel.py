@@ -139,199 +139,192 @@ def render_selection_tools() -> None:
 
 def render_zone_panel(event: pd.Series, all_df: pd.DataFrame, radius_miles: float = 25) -> None:
     """Zone Intelligence panel for a single clicked storm marker."""
-    with st.container(height=600):
-        sev       = max(1, min(4, int(event["severity"])))
-        color     = SEVERITY_COLORS[sev]
-        sev_label = SEVERITY_LABELS[sev]
-        leads     = int(event["homes_affected"] * _LEAD_RATE)
-        revenue   = leads * _AVG_JOB
-        date_str  = (
-            event["date"].strftime("%b %d, %Y")
-            if hasattr(event["date"], "strftime")
-            else str(event["date"])
+    sev       = max(1, min(4, int(event["severity"])))
+    color     = SEVERITY_COLORS[sev]
+    sev_label = SEVERITY_LABELS[sev]
+    leads     = int(event["homes_affected"] * _LEAD_RATE)
+    revenue   = leads * _AVG_JOB
+    date_str  = (
+        event["date"].strftime("%b %d, %Y")
+        if hasattr(event["date"], "strftime")
+        else str(event["date"])
+    )
+    hail_size  = event.get("hail_size")  if pd.notna(event.get("hail_size"))  else None
+    wind_speed = event.get("wind_speed") if pd.notna(event.get("wind_speed")) else None
+
+    # ── Header card ───────────────────────────────────────────────────────────
+    st.markdown(
+        f'<div style="background:#111827;border-top:3px solid {color};'
+        f'border-radius:8px;padding:12px 14px 10px;margin:8px 0 6px;">'
+        f'<div style="font-size:13px;font-weight:700;color:#E5E7EB;">'
+        f"{event['city']}, {event['state']}"
+        f"</div>"
+        f'<div style="font-size:10px;color:#9CA3AF;letter-spacing:.05em;'
+        f'text-transform:uppercase;margin:2px 0 8px;">'
+        f"{date_str} &middot; {event['event_type']} &middot; {event['county']} Co."
+        f"</div>"
+        f'<span style="display:inline-block;padding:2px 10px;border-radius:12px;'
+        f"font-size:10px;font-weight:700;"
+        f"background:{color}22;color:{color};border:1px solid {color}55;\">"
+        f"{sev_label}"
+        f"</span>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+    # ── Stats ─────────────────────────────────────────────────────────────────
+    _row("Homes Affected",    f"{event['homes_affected']:,}")
+    _row("Est. Leads (40%)",  f"{leads:,}")
+    _row("Revenue Potential", f"${revenue:,.0f}")
+    if event["event_type"] == "Hail" and hail_size:
+        _row("Hail Size", f'{hail_size:.2f}"')
+    elif wind_speed:
+        _row("Wind Speed", f'{int(wind_speed)} mph')
+
+    # ── Homeowner leads ───────────────────────────────────────────────────────
+    owners = get_homeowners_in_zone(
+        lat=event["lat"],
+        lon=event["lon"],
+        radius_miles=radius_miles,
+        storm_date=event["date"],
+        homes_affected=int(event["homes_affected"]),
+        storm_type=str(event["event_type"]),
+        storm_severity=sev,
+        hail_size=hail_size,
+        wind_speed=wind_speed,
+    )
+    _row("Homeowners Identified", f"{len(owners):,}")
+
+    zone_label   = f"{event['city']}, {event['state']}"
+    zone_summary = {
+        "storm_date":     event["date"],
+        "storm_type":     event["event_type"],
+        "storm_severity": sev_label,
+        "hail_size":      hail_size,
+        "wind_speed":     wind_speed,
+    }
+    _ek = f"{event['lat']}_{event['lon']}".replace(".", "p").replace("-", "n")
+
+    # ── Export buttons ────────────────────────────────────────────────────────
+    ca, cb, cc = st.columns(3)
+    with ca:
+        st.download_button(
+            "📥 CSV",
+            data=csv_bytes(owners),
+            file_name=f"leads_{event['city'].lower().replace(' ', '_')}.csv",
+            mime="text/csv",
+            use_container_width=True,
+            key=f"dl_csv_event_{_ek}",
         )
-        hail_size  = event.get("hail_size")  if pd.notna(event.get("hail_size"))  else None
-        wind_speed = event.get("wind_speed") if pd.notna(event.get("wind_speed")) else None
-
-        # ── Header card ───────────────────────────────────────────────────────
-        st.markdown(
-            f'<div style="background:#111827;border-top:3px solid {color};'
-            f'border-radius:8px;padding:12px 14px 10px;margin:8px 0 6px;">'
-            f'<div style="font-size:13px;font-weight:700;color:#E5E7EB;">'
-            f"{event['city']}, {event['state']}"
-            f"</div>"
-            f'<div style="font-size:10px;color:#9CA3AF;letter-spacing:.05em;'
-            f'text-transform:uppercase;margin:2px 0 8px;">'
-            f"{date_str} &middot; {event['event_type']} &middot; {event['county']} Co."
-            f"</div>"
-            f'<span style="display:inline-block;padding:2px 10px;border-radius:12px;'
-            f"font-size:10px;font-weight:700;"
-            f"background:{color}22;color:{color};border:1px solid {color}55;\">"
-            f"{sev_label}"
-            f"</span>"
-            f"</div>",
-            unsafe_allow_html=True,
+    with cb:
+        st.download_button(
+            "📄 PDF",
+            data=pdf_bytes(zone_label, owners, zone_summary),
+            file_name=f"leads_{event['city'].lower().replace(' ', '_')}.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            key=f"dl_pdf_event_{_ek}",
         )
+    with cc:
+        if st.button("✕ Clear", use_container_width=True, key="clear_event_btn"):
+            st.session_state.clicked_lat = None
+            st.session_state.clicked_lon = None
+            st.session_state._last_obj_click = None
+            st.rerun()
 
-        # ── Storm stats ───────────────────────────────────────────────────────
-        _row("Homes Affected", f"{event['homes_affected']:,}")
-        _row("Est. Leads (40%)", f"{leads:,}")
-        _row("Revenue Potential", f"${revenue:,.0f}")
-        if event["event_type"] == "Hail" and hail_size:
-            _row("Hail Size", f'{hail_size:.2f}"')
-        elif wind_speed:
-            _row("Wind Speed", f'{int(wind_speed)} mph')
-        _row("Avg Roof Age", f"{event['avg_roof_age']} yrs")
-        _row("Owner-Occupied", f"{int(event['owner_pct'] * 100)}%")
-
-        # ── Severity chart ────────────────────────────────────────────────────
-        nearby = events_within_radius(all_df, event["lat"], event["lon"], radius_miles)
-        _severity_chart(nearby, radius_miles)
-
-        # ── Homeowner leads ───────────────────────────────────────────────────
-        owners = get_homeowners_in_zone(
-            lat=event["lat"],
-            lon=event["lon"],
-            radius_miles=radius_miles,
-            storm_date=event["date"],
-            homes_affected=int(event["homes_affected"]),
-            storm_type=str(event["event_type"]),
-            storm_severity=sev,
-            hail_size=hail_size,
-            wind_speed=wind_speed,
-        )
-        _row("Homeowners Identified", f"{len(owners):,}")
-
-        zone_label   = f"{event['city']}, {event['state']}"
-        zone_summary = {
-            "storm_date":     event["date"],
-            "storm_type":     event["event_type"],
-            "storm_severity": sev_label,
-            "hail_size":      hail_size,
-            "wind_speed":     wind_speed,
-        }
-        _ek = f"{event['lat']}_{event['lon']}".replace(".", "p").replace("-", "n")
-
-        ca, cb, cc = st.columns(3)
-        with ca:
-            st.download_button(
-                "📥 CSV",
-                data=csv_bytes(owners),
-                file_name=f"leads_{event['city'].lower().replace(' ', '_')}.csv",
-                mime="text/csv",
-                use_container_width=True,
-                key=f"dl_csv_event_{_ek}",
-            )
-        with cb:
-            st.download_button(
-                "📄 PDF",
-                data=pdf_bytes(zone_label, owners, zone_summary),
-                file_name=f"leads_{event['city'].lower().replace(' ', '_')}.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-                key=f"dl_pdf_event_{_ek}",
-            )
-        with cc:
-            if st.button("✕ Clear", use_container_width=True, key="clear_event_btn"):
-                st.session_state.clicked_lat = None
-                st.session_state.clicked_lon = None
-                st.session_state._last_obj_click = None
-                st.rerun()
-
-        _render_ghl_push(owners, "event")
+    _render_ghl_push(owners, "event")
 
 
 def render_radius_panel(
     events_df: pd.DataFrame, lat: float, lon: float, radius_miles: float
 ) -> None:
     """Zone Intelligence panel for a pin + radius selection."""
-    with st.container(height=600):
-        n           = len(events_df)
-        total_homes = int(events_df["homes_affected"].sum()) if n else 0
-        leads       = int(total_homes * _LEAD_RATE)
-        revenue     = leads * _AVG_JOB
+    n           = len(events_df)
+    total_homes = int(events_df["homes_affected"].sum()) if n else 0
+    leads       = int(total_homes * _LEAD_RATE)
+    revenue     = leads * _AVG_JOB
 
-        st.markdown(
-            '<div style="background:#111827;border-top:3px solid #FF6B35;'
-            "border-radius:8px;padding:12px 14px 10px;margin:8px 0 6px;\">"
-            '<div style="font-size:13px;font-weight:700;color:#E5E7EB;">Pin + Radius Zone</div>'
-            '<div style="font-size:10px;color:#9CA3AF;letter-spacing:.05em;'
-            'text-transform:uppercase;margin:2px 0;">'
-            f"{lat:.4f}, {lon:.4f} &middot; {radius_miles} mi radius"
-            "</div>"
-            "</div>",
-            unsafe_allow_html=True,
+    # ── Header card ───────────────────────────────────────────────────────────
+    st.markdown(
+        '<div style="background:#111827;border-top:3px solid #FF6B35;'
+        "border-radius:8px;padding:12px 14px 10px;margin:8px 0 6px;\">"
+        '<div style="font-size:13px;font-weight:700;color:#E5E7EB;">Pin + Radius Zone</div>'
+        '<div style="font-size:10px;color:#9CA3AF;letter-spacing:.05em;'
+        'text-transform:uppercase;margin:2px 0;">'
+        f"{lat:.4f}, {lon:.4f} &middot; {radius_miles} mi radius"
+        "</div>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    # ── Stats ─────────────────────────────────────────────────────────────────
+    _row("Storm Events",      f"{n:,}")
+    _row("Homes Affected",    f"{total_homes:,}")
+    _row("Est. Leads (40%)",  f"{leads:,}")
+    _row("Revenue Potential", f"${revenue:,.0f}")
+
+    # ── Homeowner leads (aggregate for the whole radius) ──────────────────────
+    if not events_df.empty:
+        primary    = events_df.sort_values("severity", ascending=False).iloc[0]
+        sev        = max(1, min(4, int(primary["severity"])))
+        sev_label  = SEVERITY_LABELS[sev]
+        storm_type = str(primary["event_type"])
+        storm_date = primary["date"]
+        hail_size  = primary.get("hail_size")  if pd.notna(primary.get("hail_size"))  else None
+        wind_speed = primary.get("wind_speed") if pd.notna(primary.get("wind_speed")) else None
+    else:
+        sev = 1; sev_label = "Unknown"; storm_type = "Storm"
+        storm_date = None; hail_size = None; wind_speed = None
+
+    owners = get_homeowners_in_zone(
+        lat=lat,
+        lon=lon,
+        radius_miles=radius_miles,
+        storm_date=storm_date,
+        homes_affected=total_homes,
+        storm_type=storm_type,
+        storm_severity=sev,
+        hail_size=hail_size,
+        wind_speed=wind_speed,
+    )
+    _row("Homeowners Identified", f"{len(owners):,}")
+
+    zone_label   = f"Pin + {radius_miles} mi Radius  ({lat:.4f}, {lon:.4f})"
+    zone_summary = {
+        "storm_date":     storm_date,
+        "storm_type":     f"Multiple ({n} events)" if n > 1 else storm_type,
+        "storm_severity": sev_label,
+        "hail_size":      hail_size,
+        "wind_speed":     wind_speed,
+    }
+
+    # ── Export buttons ────────────────────────────────────────────────────────
+    ca, cb, cc = st.columns(3)
+    with ca:
+        st.download_button(
+            "📥 CSV",
+            data=csv_bytes(owners),
+            file_name="leads_radius.csv",
+            mime="text/csv",
+            use_container_width=True,
+            key="dl_csv_radius",
         )
-
-        _row("Storm Events",       f"{n:,}")
-        _row("Homes Affected",     f"{total_homes:,}")
-        _row("Est. Leads (40%)",   f"{leads:,}")
-        _row("Revenue Potential",  f"${revenue:,.0f}")
-
-        _severity_chart(events_df, radius_miles)
-
-        # ── Homeowner leads (aggregate for the whole radius) ──────────────────
-        # Use primary (most severe) event for storm context; aggregate home count
-        if not events_df.empty:
-            primary = events_df.sort_values("severity", ascending=False).iloc[0]
-            sev        = max(1, min(4, int(primary["severity"])))
-            sev_label  = SEVERITY_LABELS[sev]
-            storm_type = str(primary["event_type"])
-            storm_date = primary["date"]
-            hail_size  = primary.get("hail_size")  if pd.notna(primary.get("hail_size"))  else None
-            wind_speed = primary.get("wind_speed") if pd.notna(primary.get("wind_speed")) else None
-        else:
-            sev = 1; sev_label = "Unknown"; storm_type = "Storm"
-            storm_date = None; hail_size = None; wind_speed = None
-
-        owners = get_homeowners_in_zone(
-            lat=lat,
-            lon=lon,
-            radius_miles=radius_miles,
-            storm_date=storm_date,
-            homes_affected=total_homes,
-            storm_type=storm_type,
-            storm_severity=sev,
-            hail_size=hail_size,
-            wind_speed=wind_speed,
+    with cb:
+        st.download_button(
+            "📄 PDF",
+            data=pdf_bytes(zone_label, owners, zone_summary),
+            file_name="leads_radius.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            key="dl_pdf_radius",
         )
-        _row("Homeowners Identified", f"{len(owners):,}")
+    with cc:
+        if st.button("✕ Clear Pin", use_container_width=True, key="clear_pin_btn"):
+            st.session_state.pin_location = None
+            st.session_state._last_map_click = None
+            st.rerun()
 
-        zone_label   = f"Pin + {radius_miles} mi Radius  ({lat:.4f}, {lon:.4f})"
-        zone_summary = {
-            "storm_date":     storm_date,
-            "storm_type":     f"Multiple ({n} events)" if n > 1 else storm_type,
-            "storm_severity": sev_label,
-            "hail_size":      hail_size,
-            "wind_speed":     wind_speed,
-        }
-
-        ca, cb, cc = st.columns(3)
-        with ca:
-            st.download_button(
-                "📥 CSV",
-                data=csv_bytes(owners),
-                file_name="leads_radius.csv",
-                mime="text/csv",
-                use_container_width=True,
-                key="dl_csv_radius",
-            )
-        with cb:
-            st.download_button(
-                "📄 PDF",
-                data=pdf_bytes(zone_label, owners, zone_summary),
-                file_name="leads_radius.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-                key="dl_pdf_radius",
-            )
-        with cc:
-            if st.button("✕ Clear Pin", use_container_width=True, key="clear_pin_btn"):
-                st.session_state.pin_location = None
-                st.session_state._last_map_click = None
-                st.rerun()
-
-        _render_ghl_push(owners, "radius")
+    _render_ghl_push(owners, "radius")
 
 
 # ── Private helpers ──────────────────────────────────────────────────────────────
@@ -348,36 +341,43 @@ def _row(label: str, value: str) -> None:
 
 
 def _render_ghl_push(homeowner_df: pd.DataFrame, key_suffix: str) -> None:
-    """Expander with GHL webhook push UI — sends one contact per homeowner."""
+    """Inline GHL webhook push UI — sends one contact per homeowner."""
     # TODO: Add GHL API key and location ID in settings
-    with st.expander("🔗 Push to GHL CRM"):
-        webhook = st.text_input(
-            "Webhook URL",
-            value=st.session_state.get("ghl_webhook_url", ""),
-            key=f"ghl_webhook_{key_suffix}",
-            placeholder="https://hooks.gohighlevel.com/...",
-        )
-        api_key = st.text_input(
-            "API Key (optional)",
-            value=st.session_state.get("ghl_api_key", ""),
-            key=f"ghl_apikey_{key_suffix}",
-            type="password",
-        )
-        st.session_state.ghl_webhook_url = webhook
-        st.session_state.ghl_api_key     = api_key
+    st.markdown(
+        '<div style="font-size:9px;font-weight:700;letter-spacing:.15em;color:#6B7280;'
+        'text-transform:uppercase;padding:10px 0 6px;'
+        'border-top:1px solid rgba(255,255,255,.07);margin-top:6px;">'
+        "🔗 Push to GHL CRM"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    webhook = st.text_input(
+        "Webhook URL",
+        value=st.session_state.get("ghl_webhook_url", ""),
+        key=f"ghl_webhook_{key_suffix}",
+        placeholder="https://hooks.gohighlevel.com/...",
+    )
+    api_key = st.text_input(
+        "API Key (optional)",
+        value=st.session_state.get("ghl_api_key", ""),
+        key=f"ghl_apikey_{key_suffix}",
+        type="password",
+    )
+    st.session_state.ghl_webhook_url = webhook
+    st.session_state.ghl_api_key     = api_key
 
-        st.caption(f"{len(homeowner_df)} contacts will be pushed as individual GHL leads.")
+    st.caption(f"{len(homeowner_df)} contacts will be pushed as individual GHL leads.")
 
-        if st.button("🚀 Push Leads", use_container_width=True, key=f"ghl_push_{key_suffix}"):
-            if not webhook:
-                st.warning("Enter a webhook URL first.")
+    if st.button("🚀 Push Leads to GHL", use_container_width=True, key=f"ghl_push_{key_suffix}"):
+        if not webhook:
+            st.warning("Enter a webhook URL first.")
+        else:
+            with st.spinner("Pushing…"):
+                ok, msg = push_to_ghl(webhook, api_key, homeowner_df)
+            if ok:
+                st.success(msg)
             else:
-                with st.spinner("Pushing…"):
-                    ok, msg = push_to_ghl(webhook, api_key, homeowner_df)
-                if ok:
-                    st.success(msg)
-                else:
-                    st.error(msg)
+                st.error(msg)
 
 
 def _severity_chart(df: pd.DataFrame, radius_miles: float) -> None:
