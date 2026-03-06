@@ -98,19 +98,19 @@ def render_timeline(
         cur_speed = st.session_state.timeline_speed
         sb1, sb2, sb3 = st.columns(3)
         with sb1:
-            if st.button("S", key="tl_sp_slow",
+            if st.button("\u00a0S\u00a0", key="tl_sp_slow",
                          type="primary" if cur_speed == "Slow" else "secondary",
                          use_container_width=True, help="Slow (1 s/day)"):
                 st.session_state.timeline_speed = "Slow"
                 st.rerun()
         with sb2:
-            if st.button("N", key="tl_sp_norm",
+            if st.button("\u00a0N\u00a0", key="tl_sp_norm",
                          type="primary" if cur_speed == "Normal" else "secondary",
                          use_container_width=True, help="Normal (0.5 s/day)"):
                 st.session_state.timeline_speed = "Normal"
                 st.rerun()
         with sb3:
-            if st.button("F", key="tl_sp_fast",
+            if st.button("\u00a0F\u00a0", key="tl_sp_fast",
                          type="primary" if cur_speed == "Fast" else "secondary",
                          use_container_width=True, help="Fast (0.1 s/day)"):
                 st.session_state.timeline_speed = "Fast"

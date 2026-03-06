@@ -127,6 +127,9 @@ def _inject_css() -> None:
     ::-webkit-scrollbar-thumb { background: #1F2937; border-radius: 2px; }
     ::-webkit-scrollbar-thumb:hover { background: #374151; }
 
+    /* ── Hide raw slider thumb number (date label above is the display) ── */
+    .stSlider [data-testid="stThumbValue"] { display: none !important; }
+
     /* ── Map iframe — fill remaining viewport height ── */
     .stIFrame, iframe {
         border-radius: 8px !important;
@@ -357,6 +360,15 @@ def main() -> None:
     # ── Timeline strip (between top bar and map columns) ─────────────────────
     if tl_visible and date_start and date_end:
         render_timeline(date_start, date_end, display_df)
+        st.markdown(
+            '<div style="text-align:center;font-size:10px;color:#374151;'
+            'letter-spacing:.04em;margin-top:-6px;margin-bottom:2px;">'
+            'Drag slider to travel through time &nbsp;·&nbsp; '
+            'Play animates storms chronologically &nbsp;·&nbsp; '
+            'S / N / F controls speed'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
     # ── Two-column layout: map (left) + zone panel (right) ───────────────────
     col_map, col_panel = st.columns([7, 3])
@@ -373,7 +385,7 @@ def main() -> None:
             slider_date=slider_date,
         )
 
-        map_height = 600 if tl_visible else 700
+        map_height = 560 if tl_visible else 680
         map_return = st_folium(
             folium_map,
             use_container_width=True,
