@@ -162,6 +162,22 @@ def _inject_css() -> None:
     }
 
 
+    /* ── Scrollable container — unblock overflow for st.container(height=) ── */
+    /* Streamlit renders these as a div with overflow-y:auto internally;
+       global overflow:hidden ancestors clip it — restore scroll here.     */
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        overflow: visible !important;
+    }
+    div[data-height] {
+        overflow-y: auto !important;
+    }
+    .stScrollable,
+    [data-testid="stScrollable"],
+    [data-testid="stScrollableContainer"] {
+        overflow-y: auto !important;
+        height: 600px !important;
+    }
+
     /* ── Date picker — every known Baseweb/Streamlit calendar container ── */
     [data-baseweb="popover"] {
         transform: translateY(40px) !important;
