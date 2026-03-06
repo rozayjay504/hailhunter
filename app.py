@@ -68,8 +68,9 @@ def _inject_css() -> None:
     [data-testid="stSidebar"] > div:first-child {
         padding-top: 0 !important;
     }
+    /* Small positive gap so filter sections breathe without adding huge whitespace */
     [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-        gap: 0 !important;
+        gap: 3px !important;
     }
 
     /* ── Brand header ── */
@@ -102,23 +103,43 @@ def _inject_css() -> None:
     .filter-label {
         font-size: 9px;
         font-weight: 800;
-        letter-spacing: 0.14em;
+        letter-spacing: 0.16em;
         color: #4B5563;
         text-transform: uppercase;
-        margin: 0.9rem 0 0.3rem;
-        padding: 0 0.1rem;
+        display: block;
+        line-height: 1;
+        margin: 1.0rem 0 0.3rem;
+        padding: 0;
     }
 
     /* ── Dividers ── */
     .filter-divider {
         border: none;
         border-top: 1px solid rgba(255, 255, 255, 0.05);
-        margin: 0.5rem 0 0;
+        margin: 0.6rem 0 0;
     }
 
-    /* ── Checkboxes — tighter spacing ── */
+    /* ── Checkboxes — fix icon/text overlap, proper alignment ── */
     [data-testid="stCheckbox"] {
-        margin-bottom: 0 !important;
+        margin-bottom: 2px !important;
+        padding: 0 !important;
+    }
+    [data-testid="stCheckbox"] label {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 8px !important;
+        min-height: 22px !important;
+        padding: 1px 0 !important;
+        cursor: pointer !important;
+    }
+    [data-testid="stCheckbox"] p {
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 1.3 !important;
+        font-size: 12px !important;
+        color: #D1D5DB !important;
+        white-space: nowrap !important;
     }
 
     /* ── Scrollbar ── */

@@ -186,6 +186,9 @@ def render_zone_panel(event: pd.Series, all_df: pd.DataFrame, radius_miles: floa
 
     zone_label = f"{event['city']}, {event['state']}"
     leads_df   = build_leads_df(nearby)
+    # Key encodes the exact marker so Streamlit doesn't serve cached bytes
+    # from a previously clicked event.
+    _ek = f"{event['lat']}_{event['lon']}".replace(".", "p").replace("-", "n")
 
     ca, cb, cc = st.columns(3)
     with ca:
@@ -195,7 +198,7 @@ def render_zone_panel(event: pd.Series, all_df: pd.DataFrame, radius_miles: floa
             file_name=f"hailhunter_{event['city'].lower().replace(' ', '_')}.csv",
             mime="text/csv",
             use_container_width=True,
-            key="dl_csv_event",
+            key=f"dl_csv_event_{_ek}",
         )
     with cb:
         st.download_button(
@@ -204,7 +207,7 @@ def render_zone_panel(event: pd.Series, all_df: pd.DataFrame, radius_miles: floa
             file_name=f"hailhunter_{event['city'].lower().replace(' ', '_')}.pdf",
             mime="application/pdf",
             use_container_width=True,
-            key="dl_pdf_event",
+            key=f"dl_pdf_event_{_ek}",
         )
     with cc:
         if st.button("✕ Clear", use_container_width=True, key="clear_event_btn"):
