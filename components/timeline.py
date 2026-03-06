@@ -73,10 +73,10 @@ def render_timeline(
             st.rerun()
 
     with c_slider:
-        cur_date_label = (date_start + timedelta(days=cur_offset)).strftime("%B %d, %Y")
+        cur_date_label = (date_start + timedelta(days=cur_offset)).strftime("%b %d, %Y")
         st.markdown(
-            f'<div style="text-align:center;font-size:11px;font-weight:700;'
-            f'color:#FF6B35;letter-spacing:.06em;margin-bottom:-8px;">'
+            f'<div style="text-align:center;font-size:12px;font-weight:800;'
+            f'color:#FF6B35;letter-spacing:.04em;line-height:1;margin-bottom:-14px;">'
             f"{cur_date_label}</div>",
             unsafe_allow_html=True,
         )
@@ -87,6 +87,7 @@ def render_timeline(
             value=cur_offset,
             key="tl_slider",
             label_visibility="collapsed",
+            format="",
         )
         if new_offset != cur_offset:
             st.session_state.timeline_date   = date_start + timedelta(days=new_offset)

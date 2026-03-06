@@ -356,11 +356,6 @@ def main() -> None:
 
     # ── Timeline strip (between top bar and map columns) ─────────────────────
     if tl_visible and date_start and date_end:
-        st.markdown(
-            '<div style="border-bottom:1px solid rgba(255,255,255,0.06);'
-            'padding-bottom:4px;margin-bottom:4px;"></div>',
-            unsafe_allow_html=True,
-        )
         render_timeline(date_start, date_end, display_df)
 
     # ── Two-column layout: map (left) + zone panel (right) ───────────────────
@@ -378,7 +373,7 @@ def main() -> None:
             slider_date=slider_date,
         )
 
-        map_height = 620 if tl_visible else 760
+        map_height = 640 if tl_visible else 720
         map_return = st_folium(
             folium_map,
             use_container_width=True,
