@@ -1,13 +1,13 @@
 """
-Zone Intelligence panel — Phase 3
+Zone Intelligence panel — Phase 3 / Phase 5
 
 Public API:
-    haversine_miles()       great-circle distance helper
-    events_within_radius()  filter DataFrame to events within a radius
-    find_nearest_event()    match a lat/lon to the closest event row
+    haversine_miles()        great-circle distance helper
+    events_within_radius()   filter DataFrame to events within a radius
+    find_nearest_event()     match a lat/lon to the closest event row
     render_selection_tools() mode selector + radius input (right column)
-    render_zone_panel()     single-marker click intelligence panel
-    render_radius_panel()   pin + radius aggregate intelligence panel
+    render_zone_panel()      single-marker click intelligence panel
+    render_radius_panel()    pin + radius aggregate intelligence panel
 """
 
 import math
@@ -17,14 +17,15 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from utils.constants import SEVERITY_COLORS, SEVERITY_LABELS
-from components.export import build_leads_df, csv_bytes, pdf_bytes, push_to_ghl
+from components.export import csv_bytes, pdf_bytes, push_to_ghl
+from data.homeowner_client import get_homeowners_in_zone
 
-# ── Lead economics ──────────────────────────────────────────────────────────────
-_LEAD_RATE = 0.40    # 40 % of homes → potential leads
-_AVG_JOB   = 8_500  # average roofing job value ($)
+# ── Lead economics ───────────────────────────────────────────────────────────────
+_LEAD_RATE = 0.40
+_AVG_JOB   = 8_500
 
 
-# ── Geo helpers ─────────────────────────────────────────────────────────────────
+# ── Geo helpers ──────────────────────────────────────────────────────────────────
 
 def haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Return great-circle distance in miles between two (lat, lon) points."""
@@ -60,7 +61,7 @@ def find_nearest_event(
     return df.loc[idx] if dists[idx] <= max_miles else None
 
 
-# ── Panel renderers ─────────────────────────────────────────────────────────────
+# ── Panel renderers ──────────────────────────────────────────────────────────────
 
 def render_selection_tools() -> None:
     """Render the Selection Mode panel in the right column."""
@@ -124,7 +125,6 @@ def render_selection_tools() -> None:
         else:
             st.caption("Click the map to drop a pin.")
     else:
-        # Hint when nothing is selected
         clat = st.session_state.get("clicked_lat")
         if clat is None:
             st.markdown(
@@ -139,17 +139,20 @@ def render_selection_tools() -> None:
 
 def render_zone_panel(event: pd.Series, all_df: pd.DataFrame, radius_miles: float = 25) -> None:
     """Zone Intelligence panel for a single clicked storm marker."""
-    sev = max(1, min(4, int(event["severity"])))
-    color = SEVERITY_COLORS[sev]
+    sev       = max(1, min(4, int(event["severity"])))
+    color     = SEVERITY_COLORS[sev]
     sev_label = SEVERITY_LABELS[sev]
-    leads = int(event["homes_affected"] * _LEAD_RATE)
-    revenue = leads * _AVG_JOB
-    date_str = (
+    leads     = int(event["homes_affected"] * _LEAD_RATE)
+    revenue   = leads * _AVG_JOB
+    date_str  = (
         event["date"].strftime("%b %d, %Y")
         if hasattr(event["date"], "strftime")
         else str(event["date"])
     )
+    hail_size  = event.get("hail_size")  if pd.notna(event.get("hail_size"))  else None
+    wind_speed = event.get("wind_speed") if pd.notna(event.get("wind_speed")) else None
 
+    # ── Header card ───────────────────────────────────────────────────────────
     st.markdown(
         f'<div style="background:#111827;border-top:3px solid {color};'
         f'border-radius:8px;padding:12px 14px 10px;margin:8px 0 6px;">'
@@ -169,33 +172,52 @@ def render_zone_panel(event: pd.Series, all_df: pd.DataFrame, radius_miles: floa
         unsafe_allow_html=True,
     )
 
+    # ── Storm stats ───────────────────────────────────────────────────────────
     _row("Homes Affected", f"{event['homes_affected']:,}")
     _row("Est. Leads (40%)", f"{leads:,}")
     _row("Revenue Potential", f"${revenue:,.0f}")
-
-    if event["event_type"] == "Hail" and pd.notna(event.get("hail_size")):
-        _row("Hail Size", f'{event["hail_size"]:.2f}"')
-    elif pd.notna(event.get("wind_speed")):
-        _row("Wind Speed", f'{int(event["wind_speed"])} mph')
-
+    if event["event_type"] == "Hail" and hail_size:
+        _row("Hail Size", f'{hail_size:.2f}"')
+    elif wind_speed:
+        _row("Wind Speed", f'{int(wind_speed)} mph')
     _row("Avg Roof Age", f"{event['avg_roof_age']} yrs")
     _row("Owner-Occupied", f"{int(event['owner_pct'] * 100)}%")
 
+    # ── Severity chart ────────────────────────────────────────────────────────
     nearby = events_within_radius(all_df, event["lat"], event["lon"], radius_miles)
     _severity_chart(nearby, radius_miles)
 
-    zone_label = f"{event['city']}, {event['state']}"
-    leads_df   = build_leads_df(nearby)
-    # Key encodes the exact marker so Streamlit doesn't serve cached bytes
-    # from a previously clicked event.
+    # ── Homeowner leads ───────────────────────────────────────────────────────
+    owners = get_homeowners_in_zone(
+        lat=event["lat"],
+        lon=event["lon"],
+        radius_miles=radius_miles,
+        storm_date=event["date"],
+        homes_affected=int(event["homes_affected"]),
+        storm_type=str(event["event_type"]),
+        storm_severity=sev,
+        hail_size=hail_size,
+        wind_speed=wind_speed,
+    )
+    _row("Homeowners Identified", f"{len(owners):,}")
+
+    zone_label   = f"{event['city']}, {event['state']}"
+    zone_summary = {
+        "storm_date":     event["date"],
+        "storm_type":     event["event_type"],
+        "storm_severity": sev_label,
+        "hail_size":      hail_size,
+        "wind_speed":     wind_speed,
+    }
+    # Per-marker unique key prevents Streamlit from caching stale bytes
     _ek = f"{event['lat']}_{event['lon']}".replace(".", "p").replace("-", "n")
 
     ca, cb, cc = st.columns(3)
     with ca:
         st.download_button(
             "📥 CSV",
-            data=csv_bytes(leads_df),
-            file_name=f"hailhunter_{event['city'].lower().replace(' ', '_')}.csv",
+            data=csv_bytes(owners),
+            file_name=f"leads_{event['city'].lower().replace(' ', '_')}.csv",
             mime="text/csv",
             use_container_width=True,
             key=f"dl_csv_event_{_ek}",
@@ -203,8 +225,8 @@ def render_zone_panel(event: pd.Series, all_df: pd.DataFrame, radius_miles: floa
     with cb:
         st.download_button(
             "📄 PDF",
-            data=pdf_bytes(zone_label, nearby),
-            file_name=f"hailhunter_{event['city'].lower().replace(' ', '_')}.pdf",
+            data=pdf_bytes(zone_label, owners, zone_summary),
+            file_name=f"leads_{event['city'].lower().replace(' ', '_')}.pdf",
             mime="application/pdf",
             use_container_width=True,
             key=f"dl_pdf_event_{_ek}",
@@ -216,17 +238,17 @@ def render_zone_panel(event: pd.Series, all_df: pd.DataFrame, radius_miles: floa
             st.session_state._last_obj_click = None
             st.rerun()
 
-    _render_ghl_push(nearby, "event")
+    _render_ghl_push(owners, "event")
 
 
 def render_radius_panel(
     events_df: pd.DataFrame, lat: float, lon: float, radius_miles: float
 ) -> None:
     """Zone Intelligence panel for a pin + radius selection."""
-    n = len(events_df)
+    n           = len(events_df)
     total_homes = int(events_df["homes_affected"].sum()) if n else 0
-    leads = int(total_homes * _LEAD_RATE)
-    revenue = leads * _AVG_JOB
+    leads       = int(total_homes * _LEAD_RATE)
+    revenue     = leads * _AVG_JOB
 
     st.markdown(
         '<div style="background:#111827;border-top:3px solid #FF6B35;'
@@ -240,22 +262,55 @@ def render_radius_panel(
         unsafe_allow_html=True,
     )
 
-    _row("Storm Events", f"{n:,}")
-    _row("Homes Affected", f"{total_homes:,}")
-    _row("Est. Leads (40%)", f"{leads:,}")
-    _row("Revenue Potential", f"${revenue:,.0f}")
+    _row("Storm Events",       f"{n:,}")
+    _row("Homes Affected",     f"{total_homes:,}")
+    _row("Est. Leads (40%)",   f"{leads:,}")
+    _row("Revenue Potential",  f"${revenue:,.0f}")
 
     _severity_chart(events_df, radius_miles)
 
-    zone_label = f"Pin + {radius_miles} mi Radius  ({lat:.4f}, {lon:.4f})"
-    leads_df   = build_leads_df(events_df)
+    # ── Homeowner leads (aggregate for the whole radius) ──────────────────────
+    # Use primary (most severe) event for storm context; aggregate home count
+    if not events_df.empty:
+        primary = events_df.sort_values("severity", ascending=False).iloc[0]
+        sev        = max(1, min(4, int(primary["severity"])))
+        sev_label  = SEVERITY_LABELS[sev]
+        storm_type = str(primary["event_type"])
+        storm_date = primary["date"]
+        hail_size  = primary.get("hail_size")  if pd.notna(primary.get("hail_size"))  else None
+        wind_speed = primary.get("wind_speed") if pd.notna(primary.get("wind_speed")) else None
+    else:
+        sev = 1; sev_label = "Unknown"; storm_type = "Storm"
+        storm_date = None; hail_size = None; wind_speed = None
+
+    owners = get_homeowners_in_zone(
+        lat=lat,
+        lon=lon,
+        radius_miles=radius_miles,
+        storm_date=storm_date,
+        homes_affected=total_homes,
+        storm_type=storm_type,
+        storm_severity=sev,
+        hail_size=hail_size,
+        wind_speed=wind_speed,
+    )
+    _row("Homeowners Identified", f"{len(owners):,}")
+
+    zone_label   = f"Pin + {radius_miles} mi Radius  ({lat:.4f}, {lon:.4f})"
+    zone_summary = {
+        "storm_date":     storm_date,
+        "storm_type":     f"Multiple ({n} events)" if n > 1 else storm_type,
+        "storm_severity": sev_label,
+        "hail_size":      hail_size,
+        "wind_speed":     wind_speed,
+    }
 
     ca, cb, cc = st.columns(3)
     with ca:
         st.download_button(
             "📥 CSV",
-            data=csv_bytes(leads_df),
-            file_name="hailhunter_radius.csv",
+            data=csv_bytes(owners),
+            file_name="leads_radius.csv",
             mime="text/csv",
             use_container_width=True,
             key="dl_csv_radius",
@@ -263,8 +318,8 @@ def render_radius_panel(
     with cb:
         st.download_button(
             "📄 PDF",
-            data=pdf_bytes(zone_label, events_df),
-            file_name="hailhunter_radius.pdf",
+            data=pdf_bytes(zone_label, owners, zone_summary),
+            file_name="leads_radius.pdf",
             mime="application/pdf",
             use_container_width=True,
             key="dl_pdf_radius",
@@ -275,10 +330,10 @@ def render_radius_panel(
             st.session_state._last_map_click = None
             st.rerun()
 
-    _render_ghl_push(events_df, "radius")
+    _render_ghl_push(owners, "radius")
 
 
-# ── Private helpers ─────────────────────────────────────────────────────────────
+# ── Private helpers ──────────────────────────────────────────────────────────────
 
 def _row(label: str, value: str) -> None:
     st.markdown(
@@ -291,8 +346,9 @@ def _row(label: str, value: str) -> None:
     )
 
 
-def _render_ghl_push(events_df: pd.DataFrame, key_suffix: str) -> None:
-    """Expander with GHL webhook push UI."""
+def _render_ghl_push(homeowner_df: pd.DataFrame, key_suffix: str) -> None:
+    """Expander with GHL webhook push UI — sends one contact per homeowner."""
+    # TODO: Add GHL API key and location ID in settings
     with st.expander("🔗 Push to GHL CRM"):
         webhook = st.text_input(
             "Webhook URL",
@@ -309,12 +365,14 @@ def _render_ghl_push(events_df: pd.DataFrame, key_suffix: str) -> None:
         st.session_state.ghl_webhook_url = webhook
         st.session_state.ghl_api_key     = api_key
 
+        st.caption(f"{len(homeowner_df)} contacts will be pushed as individual GHL leads.")
+
         if st.button("🚀 Push Leads", use_container_width=True, key=f"ghl_push_{key_suffix}"):
             if not webhook:
                 st.warning("Enter a webhook URL first.")
             else:
                 with st.spinner("Pushing…"):
-                    ok, msg = push_to_ghl(webhook, api_key, events_df)
+                    ok, msg = push_to_ghl(webhook, api_key, homeowner_df)
                 if ok:
                     st.success(msg)
                 else:
@@ -330,14 +388,12 @@ def _severity_chart(df: pd.DataFrame, radius_miles: float) -> None:
     for sev in df["severity"]:
         counts[max(1, min(4, int(sev)))] += 1
 
-    fig = go.Figure(
-        go.Bar(
-            x=[SEVERITY_LABELS[s] for s in [1, 2, 3, 4]],
-            y=[counts[s] for s in [1, 2, 3, 4]],
-            marker_color=[SEVERITY_COLORS[s] for s in [1, 2, 3, 4]],
-            marker_line_width=0,
-        )
-    )
+    fig = go.Figure(go.Bar(
+        x=[SEVERITY_LABELS[s] for s in [1, 2, 3, 4]],
+        y=[counts[s] for s in [1, 2, 3, 4]],
+        marker_color=[SEVERITY_COLORS[s] for s in [1, 2, 3, 4]],
+        marker_line_width=0,
+    ))
     fig.update_layout(
         margin=dict(l=0, r=0, t=28, b=0),
         height=130,

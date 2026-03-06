@@ -200,7 +200,7 @@ def render_sidebar() -> None:
             st.cache_data.clear()
             st.rerun()
 
-        # Footer (count + export) rendered by render_sidebar_footer() below,
+        # Footer (count) rendered by render_sidebar_footer() below,
         # called from app.py after filtering so it always reflects live results.
 
 
@@ -208,33 +208,23 @@ def render_sidebar_footer(
     n_display: int,
     total_filtered: int,
     map_event_cap: int,
-    leads_csv: bytes,
 ) -> None:
-    """Render count badge + export button in the same sidebar block as the filter widgets."""
+    """Render event count badge in the sidebar after filtering."""
     with st.sidebar:
         st.markdown('<div style="border:none;border-top:1px solid rgba(255,255,255,0.05);margin:0.6rem 0 0;"></div>', unsafe_allow_html=True)
         st.markdown(
-            f'<div style="text-align:center;color:#6B7280;font-size:11px;padding:8px 0 4px;">'
+            f'<div style="text-align:center;color:#6B7280;font-size:11px;padding:8px 0 6px;">'
             f'<span style="color:#FF6B35;font-weight:700;">{n_display}</span>'
             f' storm events visible</div>',
             unsafe_allow_html=True,
         )
         if total_filtered > map_event_cap:
             st.markdown(
-                f'<div style="text-align:center;color:#6B7280;font-size:10px;padding:0 0 4px;">'
+                f'<div style="text-align:center;color:#6B7280;font-size:10px;padding:0 0 6px;">'
                 f'Showing {map_event_cap} of {total_filtered} — narrow filters to see all.'
                 f'</div>',
                 unsafe_allow_html=True,
             )
-        st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
-        st.download_button(
-            "📥 Export All Visible (CSV)",
-            data=leads_csv,
-            file_name="hailhunter_export.csv",
-            mime="text/csv",
-            use_container_width=True,
-            key="sidebar_export_csv",
-        )
 
 
 def get_active_filters() -> dict:

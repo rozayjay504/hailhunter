@@ -19,7 +19,6 @@ from components.zone_panel import (
 )
 from data.pipeline import get_storms, filter_storms
 from utils.constants import REGIONS, REGION_MAP_CONFIG, MAP_EVENT_CAP
-from components.export import build_leads_df, csv_bytes
 
 
 # ── Page config (must be first Streamlit call) ─────────────────────────────────
@@ -310,12 +309,11 @@ def main() -> None:
         .reset_index(drop=True)
     )
 
-    # Sidebar footer: count badge + export button (same sidebar context as filters)
+    # Sidebar footer: event count badge
     render_sidebar_footer(
         n_display=len(display_df),
         total_filtered=total_filtered,
         map_event_cap=MAP_EVENT_CAP,
-        leads_csv=csv_bytes(build_leads_df(display_df)),
     )
 
     # ── Top bar ───────────────────────────────────────────────────────────────
