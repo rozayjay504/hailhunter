@@ -17,6 +17,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from utils.constants import SEVERITY_COLORS, SEVERITY_LABELS
+from components.export import build_leads_df, csv_bytes, pdf_bytes, push_to_ghl
 
 # ── Lead economics ──────────────────────────────────────────────────────────────
 _LEAD_RATE = 0.40    # 40 % of homes → potential leads
@@ -183,15 +184,36 @@ def render_zone_panel(event: pd.Series, all_df: pd.DataFrame, radius_miles: floa
     nearby = events_within_radius(all_df, event["lat"], event["lon"], radius_miles)
     _severity_chart(nearby, radius_miles)
 
-    ca, cb = st.columns(2)
+    zone_label = f"{event['city']}, {event['state']}"
+    leads_df   = build_leads_df(nearby)
+
+    ca, cb, cc = st.columns(3)
     with ca:
-        st.button("📤 Export", use_container_width=True, disabled=True, key="exp_event_btn")
+        st.download_button(
+            "📥 CSV",
+            data=csv_bytes(leads_df),
+            file_name=f"hailhunter_{event['city'].lower().replace(' ', '_')}.csv",
+            mime="text/csv",
+            use_container_width=True,
+            key="dl_csv_event",
+        )
     with cb:
+        st.download_button(
+            "📄 PDF",
+            data=pdf_bytes(zone_label, nearby),
+            file_name=f"hailhunter_{event['city'].lower().replace(' ', '_')}.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            key="dl_pdf_event",
+        )
+    with cc:
         if st.button("✕ Clear", use_container_width=True, key="clear_event_btn"):
             st.session_state.clicked_lat = None
             st.session_state.clicked_lon = None
             st.session_state._last_obj_click = None
             st.rerun()
+
+    _render_ghl_push(nearby, "event")
 
 
 def render_radius_panel(
@@ -222,14 +244,35 @@ def render_radius_panel(
 
     _severity_chart(events_df, radius_miles)
 
-    ca, cb = st.columns(2)
+    zone_label = f"Pin + {radius_miles} mi Radius  ({lat:.4f}, {lon:.4f})"
+    leads_df   = build_leads_df(events_df)
+
+    ca, cb, cc = st.columns(3)
     with ca:
-        st.button("📤 Export", use_container_width=True, disabled=True, key="exp_radius_btn")
+        st.download_button(
+            "📥 CSV",
+            data=csv_bytes(leads_df),
+            file_name="hailhunter_radius.csv",
+            mime="text/csv",
+            use_container_width=True,
+            key="dl_csv_radius",
+        )
     with cb:
+        st.download_button(
+            "📄 PDF",
+            data=pdf_bytes(zone_label, events_df),
+            file_name="hailhunter_radius.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            key="dl_pdf_radius",
+        )
+    with cc:
         if st.button("✕ Clear Pin", use_container_width=True, key="clear_pin_btn"):
             st.session_state.pin_location = None
             st.session_state._last_map_click = None
             st.rerun()
+
+    _render_ghl_push(events_df, "radius")
 
 
 # ── Private helpers ─────────────────────────────────────────────────────────────
@@ -243,6 +286,36 @@ def _row(label: str, value: str) -> None:
         f"</div>",
         unsafe_allow_html=True,
     )
+
+
+def _render_ghl_push(events_df: pd.DataFrame, key_suffix: str) -> None:
+    """Expander with GHL webhook push UI."""
+    with st.expander("🔗 Push to GHL CRM"):
+        webhook = st.text_input(
+            "Webhook URL",
+            value=st.session_state.get("ghl_webhook_url", ""),
+            key=f"ghl_webhook_{key_suffix}",
+            placeholder="https://hooks.gohighlevel.com/...",
+        )
+        api_key = st.text_input(
+            "API Key (optional)",
+            value=st.session_state.get("ghl_api_key", ""),
+            key=f"ghl_apikey_{key_suffix}",
+            type="password",
+        )
+        st.session_state.ghl_webhook_url = webhook
+        st.session_state.ghl_api_key     = api_key
+
+        if st.button("🚀 Push Leads", use_container_width=True, key=f"ghl_push_{key_suffix}"):
+            if not webhook:
+                st.warning("Enter a webhook URL first.")
+            else:
+                with st.spinner("Pushing…"):
+                    ok, msg = push_to_ghl(webhook, api_key, events_df)
+                if ok:
+                    st.success(msg)
+                else:
+                    st.error(msg)
 
 
 def _severity_chart(df: pd.DataFrame, radius_miles: float) -> None:

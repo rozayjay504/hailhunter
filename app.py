@@ -19,6 +19,7 @@ from components.zone_panel import (
 )
 from data.pipeline import get_storms, filter_storms
 from utils.constants import REGIONS, REGION_MAP_CONFIG, MAP_EVENT_CAP
+from components.export import build_leads_df, csv_bytes
 
 
 # ── Page config (must be first Streamlit call) ─────────────────────────────────
@@ -196,6 +197,9 @@ def _init_session_state() -> None:
         "map_return":       None,
         # Phase 3 — click / pin+radius state
         "selection_mode":   "click",
+        # Phase 5 — GHL CRM credentials
+        "ghl_webhook_url":  "",
+        "ghl_api_key":      "",
         "pin_radius_miles": 25,
         "pin_location":     None,
         "clicked_lat":      None,
@@ -294,6 +298,16 @@ def main() -> None:
                 f'</div>',
                 unsafe_allow_html=True,
             )
+
+        _all_leads = build_leads_df(display_df)
+        st.download_button(
+            "📥 Export All Visible (CSV)",
+            data=csv_bytes(_all_leads),
+            file_name="hailhunter_export.csv",
+            mime="text/csv",
+            use_container_width=True,
+            key="sidebar_export_csv",
+        )
 
     # ── Top bar ───────────────────────────────────────────────────────────────
     n = len(display_df)
