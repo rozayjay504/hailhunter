@@ -43,8 +43,7 @@ def _inject_css() -> None:
     }
     .stApp {
         height: 100vh !important;
-        /* overflow intentionally not set — keeping it on html/body is enough
-           and setting it here clips child column scroll containers */
+        overflow: hidden !important;
     }
 
     /* ── Hide only what we need to — let Streamlit render its own header ── */
@@ -162,14 +161,6 @@ def _inject_css() -> None:
         height: calc(100vh - 140px) !important;
     }
 
-    /* ── Right zone panel — re-enable scroll on the last stColumn ── */
-    [data-testid="stColumn"]:last-child {
-        overflow-y: auto !important;
-        height: calc(100vh - 120px) !important;
-    }
-    [data-testid="stColumn"]:last-child [data-testid="stVerticalBlock"] {
-        overflow-y: auto !important;
-    }
 
     /* ── Date picker — every known Baseweb/Streamlit calendar container ── */
     [data-baseweb="popover"] {
