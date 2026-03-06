@@ -22,6 +22,7 @@ def build_map(
     df: pd.DataFrame,
     center: list | None = None,
     zoom: int | None = None,
+    slider_date=None,
 ) -> folium.Map:
     """Build and return a fully configured dark Folium map with storm overlays."""
 
@@ -43,7 +44,7 @@ def build_map(
     ).add_to(m)
 
     # Storm markers
-    _add_storm_markers(m, df)
+    _add_storm_markers(m, df, slider_date=slider_date)
 
     # UI overlays (injected into map iframe HTML)
     _add_legend(m)
@@ -54,12 +55,36 @@ def build_map(
 
 # ── Private ────────────────────────────────────────────────────────────────────
 
-def _add_storm_markers(m: folium.Map, df: pd.DataFrame) -> None:
-    """Add a CircleMarker for every storm event in the DataFrame."""
+def _add_storm_markers(
+    m: folium.Map, df: pd.DataFrame, slider_date=None
+) -> None:
+    """Add a CircleMarker for every storm event in the DataFrame.
+
+    When slider_date is provided, events within 30 days appear at full
+    opacity; older events are dimmed to 20 % to create a fade effect.
+    """
+    from datetime import date as _date
+
     for _, row in df.iterrows():
         severity = max(1, min(4, int(row["severity"])))  # clamp 1–4 defensively
         color = SEVERITY_COLORS[severity]
         radius = SEVERITY_RADIUS[severity]
+
+        # ── Opacity fade based on age from slider position ────────────────────
+        if slider_date is not None:
+            row_date = row["date"]
+            if hasattr(row_date, "date"):       # pandas Timestamp → date
+                row_date = row_date.date()
+            days_ago = (slider_date - row_date).days
+            if days_ago > 30:
+                fill_opacity   = 0.07
+                marker_opacity = 0.20
+            else:
+                fill_opacity   = 0.35
+                marker_opacity = 0.9
+        else:
+            fill_opacity   = 0.35
+            marker_opacity = 0.9
 
         date_str = row["date"].strftime("%b %d, %Y") if hasattr(row["date"], "strftime") else str(row["date"])
         tooltip_html = (
@@ -81,9 +106,9 @@ def _add_storm_markers(m: folium.Map, df: pd.DataFrame) -> None:
             color=color,
             fill=True,
             fill_color=color,
-            fill_opacity=0.35,
+            fill_opacity=fill_opacity,
             weight=2,
-            opacity=0.9,
+            opacity=marker_opacity,
             popup=folium.Popup("", max_width=1),   # empty popup — required for last_object_clicked
             tooltip=folium.Tooltip(tooltip_html, sticky=False),
         ).add_to(m)
