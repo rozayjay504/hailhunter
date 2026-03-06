@@ -9,6 +9,7 @@ from datetime import date, timedelta
 from streamlit_folium import st_folium
 
 from components.filters import render_sidebar, get_active_filters, render_sidebar_footer
+from components.export import push_to_ghl
 from components.map import build_map
 from components.zone_panel import (
     render_selection_tools,
@@ -332,6 +333,57 @@ def main() -> None:
         total_filtered=total_filtered,
         map_event_cap=MAP_EVENT_CAP,
     )
+
+    # ── Sidebar GHL CRM push (shown when a zone is selected) ──────────────────
+    zone_active = (
+        st.session_state.get("clicked_lat") is not None
+        or st.session_state.get("pin_location") is not None
+    )
+    if zone_active:
+        owners_df = st.session_state.get("current_owners")
+        with st.sidebar:
+            st.markdown(
+                '<div style="border-top:1px solid rgba(255,255,255,0.05);'
+                'margin:0.6rem 0 0;"></div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                '<div style="font-size:9px;font-weight:700;letter-spacing:.15em;'
+                'color:#6B7280;text-transform:uppercase;padding:8px 0 6px;">'
+                "🔗 Push to GHL CRM"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+            webhook = st.text_input(
+                "Webhook URL",
+                value=st.session_state.get("ghl_webhook_url", ""),
+                key="ghl_webhook_sidebar",
+                placeholder="https://hooks.gohighlevel.com/...",
+            )
+            api_key = st.text_input(
+                "API Key (optional)",
+                value=st.session_state.get("ghl_api_key", ""),
+                key="ghl_apikey_sidebar",
+                type="password",
+            )
+            st.session_state.ghl_webhook_url = webhook
+            st.session_state.ghl_api_key     = api_key
+
+            n_owners = len(owners_df) if owners_df is not None else 0
+            st.caption(f"{n_owners} contacts will be pushed as individual GHL leads.")
+
+            if st.button("🚀 Push Leads to GHL", use_container_width=True, key="ghl_push_sidebar"):
+                if not webhook:
+                    st.warning("Enter a webhook URL first.")
+                elif owners_df is None or owners_df.empty:
+                    st.warning("Select a zone first.")
+                else:
+                    with st.spinner("Pushing…"):
+                        ok, msg = push_to_ghl(webhook, api_key, owners_df)
+                    if ok:
+                        st.success(msg)
+                    else:
+                        st.error(msg)
 
     # ── Top bar ───────────────────────────────────────────────────────────────
     n = len(display_df)

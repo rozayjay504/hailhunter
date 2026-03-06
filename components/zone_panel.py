@@ -193,6 +193,7 @@ def render_zone_panel(event: pd.Series, all_df: pd.DataFrame, radius_miles: floa
         hail_size=hail_size,
         wind_speed=wind_speed,
     )
+    st.session_state.current_owners = owners
     _row("Homeowners Identified", f"{len(owners):,}")
 
     zone_label   = f"{event['city']}, {event['state']}"
@@ -232,7 +233,6 @@ def render_zone_panel(event: pd.Series, all_df: pd.DataFrame, radius_miles: floa
             st.session_state._last_obj_click = None
             st.rerun()
 
-    _render_ghl_push(owners, "event")
 
 
 def render_radius_panel(
@@ -287,6 +287,7 @@ def render_radius_panel(
         hail_size=hail_size,
         wind_speed=wind_speed,
     )
+    st.session_state.current_owners = owners
     _row("Homeowners Identified", f"{len(owners):,}")
 
     zone_label   = f"Pin + {radius_miles} mi Radius  ({lat:.4f}, {lon:.4f})"
@@ -324,7 +325,6 @@ def render_radius_panel(
             st.session_state._last_map_click = None
             st.rerun()
 
-    _render_ghl_push(owners, "radius")
 
 
 # ── Private helpers ──────────────────────────────────────────────────────────────
