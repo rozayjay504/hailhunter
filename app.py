@@ -10,7 +10,6 @@ from streamlit_folium import st_folium
 
 from components.filters import render_sidebar, get_active_filters
 from components.map import build_map
-from components.timeline import init_timeline_state, render_timeline
 from components.zone_panel import (
     render_selection_tools,
     render_zone_panel,
@@ -127,9 +126,6 @@ def _inject_css() -> None:
     ::-webkit-scrollbar-thumb { background: #1F2937; border-radius: 2px; }
     ::-webkit-scrollbar-thumb:hover { background: #374151; }
 
-    /* ── Hide raw slider thumb number (date label above is the display) ── */
-    .stSlider [data-testid="stThumbValue"] { display: none !important; }
-
     /* ── Map iframe — fill remaining viewport height ── */
     .stIFrame, iframe {
         border-radius: 8px !important;
@@ -198,11 +194,6 @@ def _init_session_state() -> None:
         "selected_zone":    None,
         "saved_zones":      [],
         "map_return":       None,
-        # Phase 4 — timeline
-        "timeline_visible": False,
-        "timeline_playing": False,
-        "timeline_speed":   "Normal",
-        "timeline_date":    None,
         # Phase 3 — click / pin+radius state
         "selection_mode":   "click",
         "pin_radius_miles": 25,
@@ -304,71 +295,23 @@ def main() -> None:
                 unsafe_allow_html=True,
             )
 
-    # ── Resolve slider date from session state (before map renders) ──────────
-    tl_visible  = st.session_state.get("timeline_visible", False)
-    date_start  = filters.get("date_start")
-    date_end    = filters.get("date_end")
-    if tl_visible and date_start and date_end:
-        init_timeline_state(date_start, date_end)
-        raw_sd      = st.session_state.get("timeline_date")
-        slider_date = max(date_start, min(date_end, raw_sd)) if raw_sd else date_end
-        # Cumulative view: show events up to slider position
-        map_df = display_df[
-            display_df["date"].apply(
-                lambda d: (d.date() if hasattr(d, "date") else d) <= slider_date
-            )
-        ].copy()
-    else:
-        slider_date = None
-        map_df      = display_df
-
-    # ── Top bar + Timeline toggle (columns so button sits alongside bar) ──────
+    # ── Top bar ───────────────────────────────────────────────────────────────
     n = len(display_df)
     total = len(raw_df)
     src_color = "#10B981" if data_source == "live" else "#6B7280"
     src_label = "LIVE" if data_source == "live" else "MOCK"
-
-    c_bar, c_tl_toggle = st.columns([10, 2])
-    with c_bar:
-        st.markdown(
-            f'<div class="top-bar">'
-            f'<span class="top-bar-title">⚡ HailHunter &nbsp;·&nbsp; Storm Intelligence</span>'
-            f'<span style="display:flex;align-items:center;gap:8px;">'
-            f'<span style="font-size:10px;font-weight:700;color:{src_color};'
-            f'background:{src_color}18;border:1px solid {src_color}44;'
-            f'padding:2px 8px;border-radius:20px;letter-spacing:.08em;">{src_label}</span>'
-            f'<span class="top-bar-badge">{n} / {total} Events</span>'
-            f'</span>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-    with c_tl_toggle:
-        # Spacer aligns button with top bar content (which has margin-top:28px)
-        st.markdown('<div style="height:32px;"></div>', unsafe_allow_html=True)
-        tl_btn_label = "📅 Hide" if tl_visible else "📅 Timeline"
-        if st.button(
-            tl_btn_label,
-            key="tl_toggle_btn",
-            use_container_width=True,
-            type="primary" if tl_visible else "secondary",
-        ):
-            st.session_state.timeline_visible = not tl_visible
-            if not st.session_state.timeline_visible:
-                st.session_state.timeline_playing = False
-            st.rerun()
-
-    # ── Timeline strip (between top bar and map columns) ─────────────────────
-    if tl_visible and date_start and date_end:
-        render_timeline(date_start, date_end, display_df)
-        st.markdown(
-            '<div style="text-align:center;font-size:10px;color:#374151;'
-            'letter-spacing:.04em;margin-top:-6px;margin-bottom:2px;">'
-            'Drag slider to travel through time &nbsp;·&nbsp; '
-            'Play animates storms chronologically &nbsp;·&nbsp; '
-            'S / N / F controls speed'
-            '</div>',
-            unsafe_allow_html=True,
-        )
+    st.markdown(
+        f'<div class="top-bar">'
+        f'<span class="top-bar-title">⚡ HailHunter &nbsp;·&nbsp; Storm Intelligence</span>'
+        f'<span style="display:flex;align-items:center;gap:8px;">'
+        f'<span style="font-size:10px;font-weight:700;color:{src_color};'
+        f'background:{src_color}18;border:1px solid {src_color}44;'
+        f'padding:2px 8px;border-radius:20px;letter-spacing:.08em;">{src_label}</span>'
+        f'<span class="top-bar-badge">{n} / {total} Events</span>'
+        f'</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
     # ── Two-column layout: map (left) + zone panel (right) ───────────────────
     col_map, col_panel = st.columns([7, 3])
@@ -379,17 +322,15 @@ def main() -> None:
             REGION_MAP_CONFIG["All States"],
         )
         folium_map = build_map(
-            map_df,
+            display_df,
             center=region_cfg["center"],
             zoom=region_cfg["zoom"],
-            slider_date=slider_date,
         )
 
-        map_height = 560 if tl_visible else 680
         map_return = st_folium(
             folium_map,
             use_container_width=True,
-            height=map_height,
+            height=720,
             key="main_map",
             returned_objects=["last_object_clicked", "last_clicked"],
         )
