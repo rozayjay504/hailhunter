@@ -73,22 +73,21 @@ def render_timeline(
             st.rerun()
 
     with c_slider:
-        cur_date_label = (date_start + timedelta(days=cur_offset)).strftime("%b %d, %Y")
-        st.markdown(
-            f'<div style="text-align:center;font-size:12px;font-weight:800;'
-            f'color:#FF6B35;letter-spacing:.04em;line-height:1;margin-bottom:-14px;">'
-            f"{cur_date_label}</div>",
-            unsafe_allow_html=True,
-        )
-        new_offset = st.slider(
+        # Build a date-string option per day so select_slider shows the
+        # real date on the thumb in real time as the user drags.
+        date_options = [
+            (date_start + timedelta(days=i)).strftime("%b %d, %Y")
+            for i in range(total_days + 1)
+        ]
+        cur_date_str = (date_start + timedelta(days=cur_offset)).strftime("%b %d, %Y")
+        selected_str = st.select_slider(
             "tl_slider_label",
-            min_value=0,
-            max_value=total_days,
-            value=cur_offset,
+            options=date_options,
+            value=cur_date_str,
             key="tl_slider",
             label_visibility="collapsed",
-            format="",
         )
+        new_offset = date_options.index(selected_str)
         if new_offset != cur_offset:
             st.session_state.timeline_date   = date_start + timedelta(days=new_offset)
             st.session_state.timeline_playing = False
@@ -100,19 +99,19 @@ def render_timeline(
         with sb1:
             if st.button("\u00a0S\u00a0", key="tl_sp_slow",
                          type="primary" if cur_speed == "Slow" else "secondary",
-                         use_container_width=True, help="Slow (1 s/day)"):
+                         help="Slow (1 s/day)"):
                 st.session_state.timeline_speed = "Slow"
                 st.rerun()
         with sb2:
             if st.button("\u00a0N\u00a0", key="tl_sp_norm",
                          type="primary" if cur_speed == "Normal" else "secondary",
-                         use_container_width=True, help="Normal (0.5 s/day)"):
+                         help="Normal (0.5 s/day)"):
                 st.session_state.timeline_speed = "Normal"
                 st.rerun()
         with sb3:
             if st.button("\u00a0F\u00a0", key="tl_sp_fast",
                          type="primary" if cur_speed == "Fast" else "secondary",
-                         use_container_width=True, help="Fast (0.1 s/day)"):
+                         help="Fast (0.1 s/day)"):
                 st.session_state.timeline_speed = "Fast"
                 st.rerun()
 
