@@ -68,9 +68,9 @@ def _inject_css() -> None:
     [data-testid="stSidebar"] > div:first-child {
         padding-top: 8px !important;
     }
-    /* Small positive gap so filter sections breathe without adding huge whitespace */
+    /* Gap between sidebar widgets — enough to prevent label/widget overlap */
     [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-        gap: 3px !important;
+        gap: 8px !important;
     }
 
     /* ── Brand header ── */

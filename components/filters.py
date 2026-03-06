@@ -13,7 +13,7 @@ from utils.constants import STORM_TYPES, HAIL_SIZE_MARKS, HAIL_SIZE_MIN, HAIL_SI
 
 _LABEL_STYLE = (
     "font-size:9px;font-weight:800;letter-spacing:0.16em;color:#9CA3AF;"
-    "text-transform:uppercase;display:block;margin:1.2rem 0 0.4rem;padding:0;"
+    "text-transform:uppercase;display:block;margin:1.2rem 0 0.6rem;padding:0;"
 )
 
 
