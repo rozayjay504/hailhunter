@@ -155,7 +155,7 @@ def render_zone_panel(event: pd.Series, all_df: pd.DataFrame, radius_miles: floa
     # ── Header card ───────────────────────────────────────────────────────────
     st.markdown(
         f'<div style="background:#111827;border-top:3px solid {color};'
-        f'border-radius:8px;padding:12px 14px 10px;margin:8px 0 6px;">'
+        f'border-radius:8px;padding:8px 10px 6px;margin:4px 0 4px;">'
         f'<div style="font-size:13px;font-weight:700;color:#E5E7EB;">'
         f"{event['city']}, {event['state']}"
         f"</div>"
@@ -247,7 +247,7 @@ def render_radius_panel(
     # ── Header card ───────────────────────────────────────────────────────────
     st.markdown(
         '<div style="background:#111827;border-top:3px solid #FF6B35;'
-        "border-radius:8px;padding:12px 14px 10px;margin:8px 0 6px;\">"
+        "border-radius:8px;padding:8px 10px 6px;margin:4px 0 4px;\">"
         '<div style="font-size:13px;font-weight:700;color:#E5E7EB;">Pin + Radius Zone</div>'
         '<div style="font-size:10px;color:#9CA3AF;letter-spacing:.05em;'
         'text-transform:uppercase;margin:2px 0;">'
@@ -332,7 +332,7 @@ def render_radius_panel(
 def _row(label: str, value: str) -> None:
     st.markdown(
         f'<div style="display:flex;justify-content:space-between;'
-        f'font-size:12px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05);">'
+        f'font-size:12px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.05);">'
         f'<span style="color:#9CA3AF;">{label}</span>'
         f'<span style="color:#E5E7EB;font-weight:600;">{value}</span>'
         f"</div>",
