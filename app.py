@@ -66,7 +66,7 @@ def _inject_css() -> None:
         border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
     }
     [data-testid="stSidebar"] > div:first-child {
-        padding-top: 0 !important;
+        padding-top: 8px !important;
     }
     /* Small positive gap so filter sections breathe without adding huge whitespace */
     [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
@@ -108,7 +108,7 @@ def _inject_css() -> None:
         text-transform: uppercase;
         display: block;
         line-height: 1;
-        margin: 1.0rem 0 0.3rem;
+        margin: 1.5rem 0 0.5rem;
         padding: 0;
     }
 
@@ -117,6 +117,13 @@ def _inject_css() -> None:
         border: none;
         border-top: 1px solid rgba(255, 255, 255, 0.05);
         margin: 0.6rem 0 0;
+    }
+
+    /* ── Sliders — top padding so tick/tooltip doesn't clip label above ── */
+    [data-testid="stSidebar"] [data-testid="stSlider"],
+    [data-testid="stSidebar"] [data-testid="stSelectSlider"] {
+        padding-top: 10px !important;
+        margin-top: 2px !important;
     }
 
     /* ── Checkboxes — fix icon/text overlap, proper alignment ── */

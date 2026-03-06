@@ -82,6 +82,7 @@ def render_sidebar() -> None:
         # ── Hail Size ─────────────────────────────────────────────────────────
         st.markdown('<div class="filter-divider"></div>', unsafe_allow_html=True)
         _section("Min Hail Size")
+        st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
         hail_size = st.slider(
             "hail_size_slider_label",
             min_value=HAIL_SIZE_MIN,
@@ -168,6 +169,7 @@ def render_sidebar() -> None:
         # ── Min Severity ──────────────────────────────────────────────────────
         st.markdown('<div class="filter-divider"></div>', unsafe_allow_html=True)
         _section("Min Severity")
+        st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
 
         severity_labels = {
             1: "1 — Minor",
