@@ -161,6 +161,13 @@ def _inject_css() -> None:
         height: calc(100vh - 140px) !important;
     }
 
+    /* ── Right zone panel — scrollable column ── */
+    section[data-testid="stMain"] div[data-testid="column"]:nth-of-type(2) {
+        overflow-y: auto !important;
+        max-height: calc(100vh - 140px) !important;
+        padding-bottom: 40px !important;
+    }
+
     /* ── Date picker — every known Baseweb/Streamlit calendar container ── */
     [data-baseweb="popover"] {
         transform: translateY(40px) !important;
